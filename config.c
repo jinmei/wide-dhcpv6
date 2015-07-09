@@ -156,13 +156,13 @@ configure_interface(iflist)
 		struct cf_list *cfl;
 
 		if (if_nametoindex(ifp->name) == 0) {
-			dprintf(LOG_ERR, FNAME, "invalid interface(%s): %s",
+			dprint(LOG_ERR, FNAME, "invalid interface(%s): %s",
 			    ifp->name, strerror(errno));
 			goto bad;
 		}
 
 		if ((ifc = malloc(sizeof(*ifc))) == NULL) {
-			dprintf(LOG_ERR, FNAME,
+			dprint(LOG_ERR, FNAME,
 			    "memory allocation for %s failed", ifp->name);
 			goto bad;
 		}
@@ -171,7 +171,7 @@ configure_interface(iflist)
 		dhcp6_ifconflist = ifc;
 
 		if ((ifc->ifname = strdup(ifp->name)) == NULL) {
-			dprintf(LOG_ERR, FNAME, "failed to copy ifname");
+			dprint(LOG_ERR, FNAME, "failed to copy ifname");
 			goto bad;
 		}
 
@@ -183,10 +183,9 @@ configure_interface(iflist)
 			switch(cfl->type) {
 			case DECL_REQUEST:
 				if (dhcp6_mode != DHCP6_MODE_CLIENT) {
-					dprintf(LOG_INFO, FNAME, "%s:%d "
-						"client-only configuration",
-						configfilename,
-						cfl->line);
+					dprint(LOG_INFO, FNAME, "%s:%d "
+					       "client-only configuration",
+					       configfilename, cfl->line);
 					goto bad;
 				}
 				if (add_options(DHCPOPTCODE_REQUEST,
@@ -208,39 +207,39 @@ configure_interface(iflist)
 				break;
 			case DECL_INFO_ONLY:
 				if (dhcp6_mode != DHCP6_MODE_CLIENT) {
-					dprintf(LOG_INFO, FNAME, "%s:%d "
-						"client-only configuration",
-						configfilename, cfl->line);
+					dprint(LOG_INFO, FNAME, "%s:%d "
+					       "client-only configuration",
+					       configfilename, cfl->line);
 					goto bad;
 				}
 				ifc->send_flags |= DHCIFF_INFO_ONLY;
 				break;
 			case DECL_PREFERENCE:
 				if (dhcp6_mode != DHCP6_MODE_SERVER) {
-					dprintf(LOG_INFO, FNAME, "%s:%d "
-						"server-only configuration",
-						configfilename, cfl->line);
+					dprint(LOG_INFO, FNAME, "%s:%d "
+					       "server-only configuration",
+					       configfilename, cfl->line);
 					goto bad;
 				}
 				ifc->server_pref = (int)cfl->num;
 				if (ifc->server_pref < 0 ||
 				    ifc->server_pref > 255) {
-					dprintf(LOG_INFO, FNAME, "%s:%d "
-						"bad value: %d",
-						configfilename, cfl->line,
-						ifc->server_pref);
+					dprint(LOG_INFO, FNAME, "%s:%d "
+					       "bad value: %d",
+					       configfilename, cfl->line,
+					       ifc->server_pref);
 					goto bad;
 				}
 				break;
 			case DECL_SCRIPT:
 				if (dhcp6_mode != DHCP6_MODE_CLIENT) {
-					dprintf(LOG_INFO, FNAME, "%s:%d "
-						"client-only configuration",
-						configfilename, cfl->line);
+					dprint(LOG_INFO, FNAME, "%s:%d "
+					       "client-only configuration",
+					       configfilename, cfl->line);
 					goto bad;
 				}
 				if (ifc->scriptpath) {
-					dprintf(LOG_INFO, FNAME,
+					dprint(LOG_INFO, FNAME,
 					    "%s:%d duplicated configuration",
 					    configfilename, cfl->line);
 					goto bad;
@@ -248,13 +247,13 @@ configure_interface(iflist)
 				cp = cfl->ptr;
 				ifc->scriptpath = strdup(cp + 1);
 				if (ifc->scriptpath == NULL) {
-					dprintf(LOG_NOTICE, FNAME,
+					dprint(LOG_NOTICE, FNAME,
 					    "failed to copy script path");
 					goto bad;
 				}
 				cp = ifc->scriptpath;
 				if (*cp != '/') {
-					dprintf(LOG_INFO, FNAME,
+					dprint(LOG_INFO, FNAME,
 					    "script must be an absolute path");
 					goto bad;
 				}
@@ -272,36 +271,36 @@ configure_interface(iflist)
 						if (strcmp(spec->name, pool->name) == 0)
 							break;
 					if (pool == NULL) {
-						dprintf(LOG_ERR, FNAME, "%s:%d "
-							"pool '%s' not found",
-							configfilename, cfl->line,
-					   		spec->name);
+						dprint(LOG_ERR, FNAME, "%s:%d "
+						       "pool '%s' not found",
+						       configfilename,
+						       cfl->line, spec->name);
 						goto bad;
 					}
 					if (spec->vltime != DHCP6_DURATION_INFINITE &&
 						(spec->pltime == DHCP6_DURATION_INFINITE ||
 						spec->pltime > spec->vltime)) {
-						dprintf(LOG_ERR, FNAME, "%s:%d ",
-							configfilename, cfl->line,
-							"specified a larger preferred lifetime "
-							"than valid lifetime");
+						dprint(LOG_ERR, FNAME, "%s:%d ",
+						       configfilename, cfl->line,
+						       "specified a larger preferred lifetime "
+						       "than valid lifetime");
 						goto bad;
 					}
 					ifc->pool = *spec;
 					if ((ifc->pool.name = strdup(spec->name)) == NULL) {
-						dprintf(LOG_ERR, FNAME,
-							"memory allocation failed");
+						dprint(LOG_ERR, FNAME,
+						       "memory allocation failed");
 						goto bad;
 					}
-					dprintf(LOG_DEBUG, FNAME,
-						"pool '%s' is specified to the interface '%s'",
-						ifc->pool.name, ifc->ifname);
+					dprint(LOG_DEBUG, FNAME,
+					       "pool '%s' is specified to the interface '%s'",
+					       ifc->pool.name, ifc->ifname);
 				}
 				break;
 			default:
-				dprintf(LOG_ERR, FNAME, "%s:%d "
-					"invalid interface configuration",
-					configfilename, cfl->line);
+				dprint(LOG_ERR, FNAME, "%s:%d "
+				       "invalid interface configuration",
+				       configfilename, cfl->line);
 				goto bad;
 			}
 		}
@@ -338,7 +337,7 @@ configure_ia(ialist, iatype)
 		confsize = sizeof(struct iana_conf);
 		break;
 	default:
-		dprintf(LOG_ERR, FNAME, "internal error");
+		dprint(LOG_ERR, FNAME, "internal error");
 		goto bad;
 	}
 
@@ -346,7 +345,7 @@ configure_ia(ialist, iatype)
 		struct cf_list *cfl;
 
 		if ((iac = malloc(confsize)) == NULL) {
-			dprintf(LOG_ERR, FNAME,
+			dprint(LOG_ERR, FNAME,
 			    "memory allocation for IA %s failed",
 			    iap->name);
 			goto bad;
@@ -386,13 +385,13 @@ configure_ia(ialist, iatype)
 					if (add_prefix(&pdp->iapd_prefix_list,
 					    "IAPD", DHCP6_LISTVAL_PREFIX6,
 					    cfl->ptr)) {
-						dprintf(LOG_NOTICE, FNAME, "failed "
-							"to configure prefix");
+						dprint(LOG_NOTICE, FNAME, "failed "
+						       "to configure prefix");
 						goto bad;
 					}
 					break;
 				default:
-					dprintf(LOG_ERR, FNAME, "%s:%d "
+					dprint(LOG_ERR, FNAME, "%s:%d "
 					    "invalid configuration",
 					    configfilename, cfl->line);
 					goto bad;
@@ -404,20 +403,20 @@ configure_ia(ialist, iatype)
 					if (add_prefix(&nap->iana_address_list,
 					    "IANA", DHCP6_LISTVAL_STATEFULADDR6,
 					    cfl->ptr)) {
-						dprintf(LOG_NOTICE, FNAME, "failed "
-							"to configure address");
+						dprint(LOG_NOTICE, FNAME, "failed "
+						       "to configure address");
 						goto bad;
 					}
 					break;
 				default:
-					dprintf(LOG_ERR, FNAME, "%s:%d "
+					dprint(LOG_ERR, FNAME, "%s:%d "
 					    "invalid configuration",
 					    configfilename, cfl->line);
 					goto bad;
 				}
 				break;
 			default:
-				dprintf(LOG_ERR, FNAME, "%s:%d "
+				dprint(LOG_ERR, FNAME, "%s:%d "
 				    "invalid iatype %d",
 				    configfilename, cfl->line, iatype);
 				goto bad;
@@ -443,7 +442,7 @@ add_pd_pif(iapdc, cfl0)
 	for (pif = TAILQ_FIRST(&iapdc->iapd_pif_list); pif;
 	    pif = TAILQ_NEXT(pif, link)) {
 		if (strcmp(pif->ifname, cfl0->ptr) == 0) {
-			dprintf(LOG_NOTICE, FNAME, "%s:%d "
+			dprint(LOG_NOTICE, FNAME, "%s:%d "
 			    "duplicated prefix interface: %s",
 			    configfilename, cfl0->line, cfl0->ptr);
 			return (0); /* ignore it */
@@ -451,7 +450,7 @@ add_pd_pif(iapdc, cfl0)
 	}
 
 	if ((pif = malloc(sizeof(*pif))) == NULL) {
-		dprintf(LOG_ERR, FNAME,
+		dprint(LOG_ERR, FNAME,
 		    "memory allocation for %s failed", cfl0->ptr);
 		goto bad;
 	}
@@ -459,20 +458,20 @@ add_pd_pif(iapdc, cfl0)
 
 	/* validate and copy ifname */
 	if (if_nametoindex(cfl0->ptr) == 0) {
-		dprintf(LOG_ERR, FNAME, "%s:%d invalid interface (%s): %s",
+		dprint(LOG_ERR, FNAME, "%s:%d invalid interface (%s): %s",
 		    configfilename, cfl0->line,
 		    cfl0->ptr, strerror(errno));
 		goto bad;
 	}
 	if ((pif->ifname = strdup(cfl0->ptr)) == NULL) {
-		dprintf(LOG_ERR, FNAME, "failed to copy ifname");
+		dprint(LOG_ERR, FNAME, "failed to copy ifname");
 		goto bad;
 	}
 
 	pif->ifid_len = IFID_LEN_DEFAULT;
 	pif->sla_len = SLA_LEN_DEFAULT;
 	if (get_default_ifid(pif)) {
-		dprintf(LOG_NOTICE, FNAME,
+		dprint(LOG_NOTICE, FNAME,
 		    "failed to get default IF ID for %s", pif->ifname);
 		goto bad;
 	}
@@ -485,14 +484,14 @@ add_pd_pif(iapdc, cfl0)
 		case IFPARAM_SLA_LEN:
 			pif->sla_len = (int)cfl->num;
 			if (pif->sla_len < 0 || pif->sla_len > 128) {
-				dprintf(LOG_ERR, FNAME, "%s:%d "
+				dprint(LOG_ERR, FNAME, "%s:%d "
 				    "invalid SLA length: %d",
 				    configfilename, cfl->line, pif->sla_len); 
 				goto bad;
 			}
 			break;
 		default:
-			dprintf(LOG_ERR, FNAME, "%s:%d internal error: "
+			dprint(LOG_ERR, FNAME, "%s:%d internal error: "
 			    "invalid configuration",
 			    configfilename, cfl->line);
 			goto bad;
@@ -520,8 +519,8 @@ configure_host(hostlist)
 		struct cf_list *cfl;
 
 		if ((hconf = malloc(sizeof(*hconf))) == NULL) {
-			dprintf(LOG_ERR, FNAME, "memory allocation failed "
-				"for host %s", host->name);
+			dprint(LOG_ERR, FNAME, "memory allocation failed "
+			       "for host %s", host->name);
 			goto bad;
 		}
 		memset(hconf, 0, sizeof(*hconf));
@@ -531,7 +530,7 @@ configure_host(hostlist)
 		host_conflist0 = hconf;
 
 		if ((hconf->name = strdup(host->name)) == NULL) {
-			dprintf(LOG_ERR, FNAME, "failed to copy host name: %s",
+			dprint(LOG_ERR, FNAME, "failed to copy host name: %s",
 			    host->name);
 			goto bad;
 		}
@@ -540,7 +539,7 @@ configure_host(hostlist)
 			switch(cfl->type) {
 			case DECL_DUID:
 				if (hconf->duid.duid_id) {
-					dprintf(LOG_ERR, FNAME, "%s:%d "
+					dprint(LOG_ERR, FNAME, "%s:%d "
 					    "duplicated DUID for %s",
 					    configfilename,
 					    cfl->line, host->name);
@@ -548,14 +547,14 @@ configure_host(hostlist)
 				}
 				if ((configure_duid((char *)cfl->ptr,
 						    &hconf->duid)) != 0) {
-					dprintf(LOG_ERR, FNAME, "%s:%d "
+					dprint(LOG_ERR, FNAME, "%s:%d "
 					    "failed to configure "
 					    "DUID for %s",
 					    configfilename, cfl->line,
 					    host->name);
 					goto bad;
 				}
-				dprintf(LOG_DEBUG, FNAME,
+				dprint(LOG_DEBUG, FNAME,
 				    "configure DUID for %s: %s",
 				    host->name, duidstr(&hconf->duid));
 				break;
@@ -563,7 +562,7 @@ configure_host(hostlist)
 				if (add_prefix(&hconf->prefix_list,
 				    hconf->name, DHCP6_LISTVAL_PREFIX6,
 				    cfl->ptr)) {
-					dprintf(LOG_ERR, FNAME, "failed "
+					dprint(LOG_ERR, FNAME, "failed "
 					    "to configure prefix for %s",
 					    host->name);
 					goto bad;
@@ -573,7 +572,7 @@ configure_host(hostlist)
 				if (add_prefix(&hconf->addr_list,
 				    hconf->name, DHCP6_LISTVAL_STATEFULADDR6,
 				    cfl->ptr)) {
-					dprintf(LOG_ERR, FNAME, "failed "
+					dprint(LOG_ERR, FNAME, "failed "
 					    "to configure address for %s",
 					    host->name);
 					goto bad;
@@ -581,7 +580,7 @@ configure_host(hostlist)
 				break;
 			case DECL_DELAYEDKEY:
 				if (hconf->delayedkey != NULL) {
-					dprintf(LOG_WARNING, FNAME,
+					dprint(LOG_WARNING, FNAME,
 					    "%s:%d: duplicate key %s for %s"
 					    " (ignored)", configfilename,
 					    cfl->line, cfl->ptr, host->name);
@@ -590,12 +589,12 @@ configure_host(hostlist)
 				if ((hconf->delayedkey =
 				    find_keybyname(key_list0, cfl->ptr))
 				    == NULL) {
-					dprintf(LOG_ERR, FNAME, "failed to "
+					dprint(LOG_ERR, FNAME, "failed to "
 					    "find key information for %s",
 					    cfl->ptr);
 					goto bad;
 				}
-				dprintf(LOG_DEBUG, FNAME, "configure key for "
+				dprint(LOG_DEBUG, FNAME, "configure key for "
 				    "delayed auth with %s (keyid=%08x)",
 				    host->name, hconf->delayedkey->keyid);
 				break;
@@ -610,34 +609,34 @@ configure_host(hostlist)
 						if (strcmp(spec->name, pool->name) == 0)
 							break;
 					if (pool == NULL) {
-						dprintf(LOG_ERR, FNAME, "%s:%d "
-							"pool '%s' not found",
-							configfilename, cfl->line,
-					   		spec->name);
+						dprint(LOG_ERR, FNAME, "%s:%d "
+						       "pool '%s' not found",
+						       configfilename,
+						       cfl->line, spec->name);
 						goto bad;
 					}
 					if (spec->vltime != DHCP6_DURATION_INFINITE &&
 						(spec->pltime == DHCP6_DURATION_INFINITE ||
 						spec->pltime > spec->vltime)) {
-						dprintf(LOG_ERR, FNAME, "%s:%d ",
-							configfilename, cfl->line,
-							"specified a larger preferred lifetime "
-							"than valid lifetime");
+						dprint(LOG_ERR, FNAME, "%s:%d ",
+						       configfilename, cfl->line,
+						       "specified a larger preferred lifetime "
+						       "than valid lifetime");
 						goto bad;
 					}
 					hconf->pool = *spec;
 					if ((hconf->pool.name = strdup(spec->name)) == NULL) {
-						dprintf(LOG_ERR, FNAME,
-							"memory allocation failed");
+						dprint(LOG_ERR, FNAME,
+						       "memory allocation failed");
 						goto bad;
 					}
-					dprintf(LOG_DEBUG, FNAME,
-						"pool '%s' is specified to the host '%s'",
-						hconf->pool.name, hconf->name);
+					dprint(LOG_DEBUG, FNAME,
+					       "pool '%s' is specified to the host '%s'",
+					       hconf->pool.name, hconf->name);
 				}
 				break;
 			default:
-				dprintf(LOG_ERR, FNAME, "%s:%d "
+				dprint(LOG_ERR, FNAME, "%s:%d "
 				    "invalid host configuration for %s",
 				    configfilename, cfl->line,
 				    host->name);
@@ -669,8 +668,8 @@ configure_keys(keylist)
 		struct cf_list *cfl;
 
 		if ((kinfo = malloc(sizeof(*kinfo))) == NULL) {
-			dprintf(LOG_ERR, FNAME, "memory allocation failed "
-				"for key %s", key->name);
+			dprint(LOG_ERR, FNAME, "memory allocation failed "
+			       "for key %s", key->name);
 			goto bad;
 		}
 		memset(kinfo, 0, sizeof(*kinfo));
@@ -678,7 +677,7 @@ configure_keys(keylist)
 		key_list0 = kinfo;
 
 		if ((kinfo->name = strdup(key->name)) == NULL) {
-			dprintf(LOG_ERR, FNAME, "failed to copy key name: %s",
+			dprint(LOG_ERR, FNAME, "failed to copy key name: %s",
 			    key->name);
 			goto bad;
 		}
@@ -689,7 +688,7 @@ configure_keys(keylist)
 			switch (cfl->type) {
 			case KEYPARAM_REALM:
 				if (kinfo->realm != NULL) {
-					dprintf(LOG_WARNING, FNAME,
+					dprint(LOG_WARNING, FNAME,
 					    "%s:%d duplicate realm for key %s "
 					    "(ignored)", configfilename,
 					    cfl->line, key->name);
@@ -697,7 +696,7 @@ configure_keys(keylist)
 				}
 				kinfo->realm = qstrdup(cfl->ptr);
 				if (kinfo->realm == NULL) {
-					dprintf(LOG_WARNING, FNAME,
+					dprint(LOG_WARNING, FNAME,
 					    "failed to allocate memory for "
 					    "realm");
 					goto bad;
@@ -706,7 +705,7 @@ configure_keys(keylist)
 				break;
 			case KEYPARAM_KEYID:
 				if (keyid != -1) {
-					dprintf(LOG_WARNING, FNAME,
+					dprint(LOG_WARNING, FNAME,
 					    "%s:%d duplicate realm for key %s "
 					    "(ignored)",
 					    configfilename, cfl->line);
@@ -714,7 +713,7 @@ configure_keys(keylist)
 				}
 				keyid = cfl->num;
 				if (keyid < 0 || keyid > 0xffffffff) {
-					dprintf(LOG_WARNING, FNAME,
+					dprint(LOG_WARNING, FNAME,
 					    "%s:%d key ID overflow",
 					     configfilename, cfl->line);
 					goto bad;
@@ -723,7 +722,7 @@ configure_keys(keylist)
 			case KEYPARAM_SECRET:
 				/* duplicate check */
 				if (kinfo->secret != NULL) {
-					dprintf(LOG_WARNING, FNAME,
+					dprint(LOG_WARNING, FNAME,
 					    "%s:%d duplicate secret "
 					    "for key %s (ignored)",
 					    configfilename, cfl->line,
@@ -733,7 +732,7 @@ configure_keys(keylist)
 
 				/* convert base64 string to binary secret */
 				if ((secretstr = qstrdup(cfl->ptr)) == NULL) {
-					dprintf(LOG_WARNING, FNAME,
+					dprint(LOG_WARNING, FNAME,
 					    "failed to make a copy of secret");
 					goto bad;
 				}
@@ -741,7 +740,7 @@ configure_keys(keylist)
 				secretlen = base64_decodestring(secretstr,
 				    secret, sizeof(secret));
 				if (secretlen < 0) {
-					dprintf(LOG_ERR, FNAME,
+					dprint(LOG_ERR, FNAME,
 					    "%s:%d failed to parse base64 key",
 					    configfilename, cfl->line);
 					free(secretstr);
@@ -752,7 +751,7 @@ configure_keys(keylist)
 				/* set the binary secret */
 				kinfo->secret = malloc(secretlen);
 				if (kinfo->secret == NULL) {
-					dprintf(LOG_WARNING, FNAME,
+					dprint(LOG_WARNING, FNAME,
 					    "failed to allocate memory "
 					    "for secret");
 					goto bad;
@@ -762,7 +761,7 @@ configure_keys(keylist)
 				break;
 			case KEYPARAM_EXPIRE:
 				if (expire != NULL) {
-					dprintf(LOG_WARNING, FNAME,
+					dprint(LOG_WARNING, FNAME,
 					    "%s:%d duplicate expire for key "
 					    "%s (ignored)", configfilename,
 					    cfl->line, key->name);
@@ -771,7 +770,7 @@ configure_keys(keylist)
 				expire = qstrdup(cfl->ptr);
 				break;
 			default:
-				dprintf(LOG_ERR, FNAME,
+				dprint(LOG_ERR, FNAME,
 				    "%s:%d invalid key parameter for %s",
 				    configfilename, cfl->line, key->name);
 				goto bad;
@@ -780,18 +779,18 @@ configure_keys(keylist)
 
 		/* check for mandatory parameters or use default */
 		if (kinfo->realm == NULL) {
-			dprintf(LOG_ERR, FNAME,
+			dprint(LOG_ERR, FNAME,
 			    "realm not specified for key %s", key->name);
 			goto bad;
 		}
 		if (keyid == -1) {
-			dprintf(LOG_ERR, FNAME,
+			dprint(LOG_ERR, FNAME,
 			    "key ID not specified for key %s", key->name);
 			goto bad;
 		}
 		kinfo->keyid = keyid;
 		if (kinfo->secret == NULL) {
-			dprintf(LOG_ERR, FNAME,
+			dprint(LOG_ERR, FNAME,
 			    "secret not specified for key %s", key->name);
 			goto bad;
 		}
@@ -802,7 +801,7 @@ configure_keys(keylist)
 				struct tm *lt;
 
 				if (time(&now) == -1) {
-					dprintf(LOG_ERR, FNAME, "cannot get "
+					dprint(LOG_ERR, FNAME, "cannot get "
 					    "current time: %s",
 					    strerror(errno));
 					goto bad;
@@ -815,14 +814,14 @@ configure_keys(keylist)
 				    strptime(expire, "%m-%d %H:%M", lt)
 				    == NULL &&
 				    strptime(expire, "%H:%M", lt) == NULL) {
-					dprintf(LOG_ERR, FNAME, "invalid "
+					dprint(LOG_ERR, FNAME, "invalid "
 					    "expiration time: %s");
 					goto bad;
 				}
 
 				expire_time = mktime(lt);
 				if (expire_time < now) {
-					dprintf(LOG_ERR, FNAME, "past "
+					dprint(LOG_ERR, FNAME, "past "
 					    "expiration time specified: %s",
 					    expire);
 					goto bad;
@@ -867,8 +866,8 @@ configure_authinfo(authlist)
 		struct cf_list *cfl;
 
 		if ((ainfo = malloc(sizeof(*ainfo))) == NULL) {
-			dprintf(LOG_ERR, FNAME, "memory allocation failed "
-				"for auth info %s", auth->name);
+			dprint(LOG_ERR, FNAME, "memory allocation failed "
+			       "for auth info %s", auth->name);
 			goto bad;
 		}
 		memset(ainfo, 0, sizeof(*ainfo));
@@ -879,7 +878,7 @@ configure_authinfo(authlist)
 		ainfo->rdm = DHCP6_AUTHRDM_UNDEF;
 
 		if ((ainfo->name = strdup(auth->name)) == NULL) {
-			dprintf(LOG_ERR, FNAME,
+			dprint(LOG_ERR, FNAME,
 			    "failed to copy auth info name: %s", auth->name);
 			goto bad;
 		}
@@ -888,7 +887,7 @@ configure_authinfo(authlist)
 			switch (cfl->type) {
 			case AUTHPARAM_PROTO:
 				if (ainfo->protocol != DHCP6_AUTHPROTO_UNDEF) {
-					dprintf(LOG_WARNING, FNAME,
+					dprint(LOG_WARNING, FNAME,
 					    "%s:%d duplicate protocol "
 					    "for auth info %s "
 					    "(ignored)",
@@ -900,7 +899,7 @@ configure_authinfo(authlist)
 				break;
 			case AUTHPARAM_ALG:
 				if (ainfo->algorithm != DHCP6_AUTHALG_UNDEF) {
-					dprintf(LOG_WARNING, FNAME,
+					dprint(LOG_WARNING, FNAME,
 					    "%s:%d duplicate algorithm "
 					    "for auth info %s "
 					    "(ignored)",
@@ -912,7 +911,7 @@ configure_authinfo(authlist)
 				break;
 			case AUTHPARAM_RDM:
 				if (ainfo->rdm != DHCP6_AUTHRDM_UNDEF) {
-					dprintf(LOG_WARNING, FNAME,
+					dprint(LOG_WARNING, FNAME,
 					    "%s:%d duplicate RDM "
 					    "for auth info %s "
 					    "(ignored)",
@@ -923,13 +922,13 @@ configure_authinfo(authlist)
 				ainfo->rdm = (int)cfl->num;
 				break;
 			case AUTHPARAM_KEY:
-				dprintf(LOG_WARNING, FNAME,
+				dprint(LOG_WARNING, FNAME,
 				    "%s:%d auth info specific keys "
 				    "are not supported",
 				    configfilename, cfl->line);
 				break;
 			default:
-				dprintf(LOG_ERR, FNAME,
+				dprint(LOG_ERR, FNAME,
 				    "%s:%d invalid auth info parameter for %s",
 				    configfilename, cfl->line, auth->name);
 				goto bad;
@@ -939,20 +938,20 @@ configure_authinfo(authlist)
 		/* check for mandatory parameters and consistency */
 		switch (ainfo->protocol) {
 		case DHCP6_AUTHPROTO_UNDEF:
-			dprintf(LOG_ERR, FNAME,
+			dprint(LOG_ERR, FNAME,
 			    "auth protocol is not specified for %s",
 			    auth->name);
 			goto bad;
 		case DHCP6_AUTHPROTO_DELAYED:
 			if (dhcp6_mode != DHCP6_MODE_CLIENT) {
-				dprintf(LOG_ERR, FNAME,
+				dprint(LOG_ERR, FNAME,
 				    "client-only auth protocol is specified");
 				goto bad;
 			}
 			break;
 		case DHCP6_AUTHPROTO_RECONFIG:
 			if (dhcp6_mode != DHCP6_MODE_SERVER) {
-				dprintf(LOG_ERR, FNAME,
+				dprint(LOG_ERR, FNAME,
 				    "server-only auth protocol is specified");
 				goto bad;
 			}
@@ -1039,7 +1038,7 @@ configure_addr(cf_addr_list, list0, optname)
 
 	/* check against configuration restriction */
 	if (cf_addr_list != NULL && dhcp6_mode != DHCP6_MODE_SERVER) {
-		dprintf(LOG_INFO, FNAME, "%s:%d server-only configuration",
+		dprint(LOG_INFO, FNAME, "%s:%d server-only configuration",
 		    configfilename, cf_addr_list->line);
 		return -1;
 	}
@@ -1049,7 +1048,7 @@ configure_addr(cf_addr_list, list0, optname)
 		/* duplication check */
 		if (dhcp6_find_listval(list0, DHCP6_LISTVAL_ADDR6,
 		    cl->ptr, 0)) {
-			dprintf(LOG_INFO, FNAME,
+			dprint(LOG_INFO, FNAME,
 			    "%s:%d duplicated %s server: %s",
 			    configfilename, cl->line,
 			    optname,
@@ -1058,7 +1057,7 @@ configure_addr(cf_addr_list, list0, optname)
 		}
 		if (dhcp6_add_listval(list0, DHCP6_LISTVAL_ADDR6,
 		    cl->ptr, NULL) == NULL) {
-			dprintf(LOG_ERR, FNAME, "failed to add a %s server",
+			dprint(LOG_ERR, FNAME, "failed to add a %s server",
 			    optname);
 			return -1;
 		}
@@ -1077,7 +1076,7 @@ configure_domain(cf_name_list, list0, optname)
 
 	/* check against configuration restriction */
 	if (cf_name_list != NULL && dhcp6_mode != DHCP6_MODE_SERVER) {
-		dprintf(LOG_INFO, FNAME, "%s:%d server-only configuration",
+		dprint(LOG_INFO, FNAME, "%s:%d server-only configuration",
 		    configfilename, cf_name_list->line);
 		return -1;
 	}
@@ -1089,7 +1088,7 @@ configure_domain(cf_name_list, list0, optname)
 
 		name = strdup(cl->ptr + 1);
 		if (name == NULL) {
-			dprintf(LOG_ERR, FNAME,
+			dprint(LOG_ERR, FNAME,
 			    "failed to copy a %s domain name",
 			    optname);
 			return -1;
@@ -1103,7 +1102,7 @@ configure_domain(cf_name_list, list0, optname)
 		/* duplication check */
 		if (dhcp6_find_listval(list0, DHCP6_LISTVAL_VBUF,
 		    &name_vbuf, 0)) {
-			dprintf(LOG_INFO, FNAME,
+			dprint(LOG_INFO, FNAME,
 			    "%s:%d duplicated %s name: %s",
 			    configfilename, cl->line, optname,
 			    name_vbuf.dv_buf);
@@ -1114,7 +1113,7 @@ configure_domain(cf_name_list, list0, optname)
 		/* add the name */
 		if (dhcp6_add_listval(list0, DHCP6_LISTVAL_VBUF,
 		    &name_vbuf, NULL) == NULL) {
-			dprintf(LOG_ERR, FNAME, "failed to add a %s name",
+			dprint(LOG_ERR, FNAME, "failed to add a %s name",
 			    optname);
 			dhcp6_vbuf_free(&name_vbuf);
 			return -1;
@@ -1145,12 +1144,12 @@ configure_duid(str, duid)
 		goto bad;
 	duidlen += (slen / 3);
 	if (duidlen > 128) {
-		dprintf(LOG_ERR, FNAME, "too long DUID (%d)", duidlen);
+		dprint(LOG_ERR, FNAME, "too long DUID (%d)", duidlen);
 		return (-1);
 	}
 
 	if ((idbuf = malloc(duidlen)) == NULL) {
-		dprintf(LOG_ERR, FNAME, "memory allocation failed");
+		dprint(LOG_ERR, FNAME, "memory allocation failed");
 		return (-1);
 	}
 
@@ -1175,7 +1174,7 @@ configure_duid(str, duid)
   bad:
 	if (idbuf)
 		free(idbuf);
-	dprintf(LOG_ERR, FNAME, "assumption failure (bad string)");
+	dprint(LOG_ERR, FNAME, "assumption failure (bad string)");
 	return (-1);
 }
 
@@ -1193,12 +1192,12 @@ get_default_ifid(pif)
 #endif
 
 	if (pif->ifid_len < 64) {
-		dprintf(LOG_NOTICE, FNAME, "ID length too short");
+		dprint(LOG_NOTICE, FNAME, "ID length too short");
 		return (-1);
 	}
 
 	if (getifaddrs(&ifap) < 0) {
-		dprintf(LOG_ERR, FNAME, "getifaddrs failed: %s",
+		dprint(LOG_ERR, FNAME, "getifaddrs failed: %s",
 		    strerror(errno));
 		return (-1);
 	}
@@ -1218,7 +1217,7 @@ get_default_ifid(pif)
 
 		sdl = (struct sockaddr_dl *)ifa->ifa_addr;
 		if (sdl->sdl_alen < 6) {
-			dprintf(LOG_NOTICE, FNAME,
+			dprint(LOG_NOTICE, FNAME,
 			    "link layer address is too short (%s)",
 			    pif->ifname);
 			goto fail;
@@ -1233,7 +1232,7 @@ get_default_ifid(pif)
 
 		sll = (struct sockaddr_ll *)ifa->ifa_addr;
 		if (sll->sll_halen < 6) {
-			dprintf(LOG_NOTICE, FNAME,
+			dprint(LOG_NOTICE, FNAME,
 			    "link layer address is too short (%s)",
 			    pif->ifname);
 			goto fail;
@@ -1256,7 +1255,7 @@ get_default_ifid(pif)
 	}
 
 	if (ifa == NULL) {
-		dprintf(LOG_INFO, FNAME,
+		dprint(LOG_INFO, FNAME,
 		    "cannot find interface information for %s", pif->ifname);
 		goto fail;
 	}
@@ -1352,7 +1351,7 @@ configure_commit()
 
 	/* clear unused IA configuration */
 	if (!TAILQ_EMPTY(&ia_conflist0)) {
-		dprintf(LOG_INFO, FNAME,
+		dprint(LOG_INFO, FNAME,
 		    "some IA configuration defined but not used");
 	}
 	clear_iaconf(&ia_conflist0);
@@ -1475,7 +1474,7 @@ clear_iaconf(ialist)
 		switch(iac->type) {
 		case IATYPE_PD:
 			if (!TAILQ_EMPTY(&iac->iadata)) {
-				dprintf(LOG_ERR, FNAME, "assumption failure");
+				dprint(LOG_ERR, FNAME, "assumption failure");
 				exit(1);
 			}
 			clear_pd_pif((struct iapd_conf *)iac);
@@ -1557,7 +1556,7 @@ add_options(opcode, ifc, cfl0)
 				ifc->allow_flags |= DHCIFF_RAPID_COMMIT;
 				break;
 			default:
-				dprintf(LOG_ERR, FNAME,
+				dprint(LOG_ERR, FNAME,
 				    "invalid operation (%d) "
 				    "for option type (%d)",
 				    opcode, cfl->type);
@@ -1566,7 +1565,7 @@ add_options(opcode, ifc, cfl0)
 			break;
 		case DHCPOPT_AUTHINFO:
 			if (opcode != DHCPOPTCODE_SEND) {
-				dprintf(LOG_ERR, FNAME,
+				dprint(LOG_ERR, FNAME,
 				    "invalid operation (%d) "
 				    "for option type (%d)",
 				    opcode, cfl->type);
@@ -1574,14 +1573,14 @@ add_options(opcode, ifc, cfl0)
 			}
 			ainfo = find_authinfo(auth_list0, cfl->ptr);
 			if (ainfo == NULL) {
-				dprintf(LOG_ERR, FNAME, "%s:%d "
+				dprint(LOG_ERR, FNAME, "%s:%d "
 				    "auth info (%s) is not defined",
 				    configfilename, cfl->line,
 				    (char *)cfl->ptr);
 				return (-1);
 			}
 			if (ifc->authinfo != NULL) {
-				dprintf(LOG_ERR, FNAME,
+				dprint(LOG_ERR, FNAME,
 				    "%s:%d authinfo is doubly specified on %s",
 				    configfilename, cfl->line, ifc->ifname);
 				return (-1);
@@ -1594,7 +1593,7 @@ add_options(opcode, ifc, cfl0)
 				iac = find_iaconf(&ia_conflist0, IATYPE_PD,
 				    (u_int32_t)cfl->num);
 				if (iac == NULL) {
-					dprintf(LOG_ERR, FNAME, "%s:%d "
+					dprint(LOG_ERR, FNAME, "%s:%d "
 					    "IA_PD (%lu) is not defined",
 					    configfilename, cfl->line,
 					    (u_long)cfl->num);
@@ -1607,7 +1606,7 @@ add_options(opcode, ifc, cfl0)
 
 				break;
 			default:
-				dprintf(LOG_ERR, FNAME,
+				dprint(LOG_ERR, FNAME,
 				    "invalid operation (%d) "
 				    "for option type (%d)", opcode, cfl->type);
 				break;
@@ -1619,7 +1618,7 @@ add_options(opcode, ifc, cfl0)
 				iac = find_iaconf(&ia_conflist0, IATYPE_NA,
 				    (u_int32_t)cfl->num);
 				if (iac == NULL) {
-					dprintf(LOG_ERR, FNAME, "%s:%d "
+					dprint(LOG_ERR, FNAME, "%s:%d "
 					    "IA_NA (%lu) is not defined",
 					    configfilename, cfl->line,
 					    (u_long)cfl->num);
@@ -1632,7 +1631,7 @@ add_options(opcode, ifc, cfl0)
 
 				break;
 			default:
-				dprintf(LOG_ERR, FNAME,
+				dprint(LOG_ERR, FNAME,
 				    "invalid operation (%d) "
 				    "for option type (%d)", opcode, cfl->type);
 				break;
@@ -1693,7 +1692,7 @@ add_options(opcode, ifc, cfl0)
 				if (dhcp6_find_listval(&ifc->reqopt_list,
 					DHCP6_LISTVAL_NUM, &opttype, 0)
 				    != NULL) {
-					dprintf(LOG_INFO, FNAME,
+					dprint(LOG_INFO, FNAME,
 					    "duplicated requested option: %s",
 					    dhcp6optstr(opttype));
 					goto next; /* ignore it */
@@ -1701,20 +1700,20 @@ add_options(opcode, ifc, cfl0)
 				if (dhcp6_add_listval(&ifc->reqopt_list,
 				    DHCP6_LISTVAL_NUM, &opttype, NULL)
 				    == NULL) {
-					dprintf(LOG_ERR, FNAME, "failed to "
+					dprint(LOG_ERR, FNAME, "failed to "
 					    "configure an option");
 					return (-1);
 				}
 				break;
 			default:
-				dprintf(LOG_ERR, FNAME,
+				dprint(LOG_ERR, FNAME,
 				    "invalid operation (%d) "
 				    "for option type (%d)", opcode, cfl->type);
 				break;
 			}
 			break;
 		default:
-			dprintf(LOG_ERR, FNAME,
+			dprint(LOG_ERR, FNAME,
 			    "%s:%d unsupported option type: %d",
 			    configfilename, cfl->line, cfl->type);
 			return (-1);
@@ -1740,13 +1739,13 @@ add_prefix(head, name, type, prefix0)
 
 	/* additional validation of parameters */
 	if (oprefix.plen < 0 || oprefix.plen > 128) {
-		dprintf(LOG_ERR, FNAME, "invalid prefix: %d", oprefix.plen);
+		dprint(LOG_ERR, FNAME, "invalid prefix: %d", oprefix.plen);
 		return (-1);
 	}
 	/* clear trailing bits */
 	prefix6_mask(&oprefix.addr, oprefix.plen);
 	if (!IN6_ARE_ADDR_EQUAL(&prefix0->addr, &oprefix.addr)) {
-		dprintf(LOG_WARNING, FNAME, "prefix %s/%d for %s "
+		dprint(LOG_WARNING, FNAME, "prefix %s/%d for %s "
 		    "has a trailing garbage.  It should be %s/%d",
 		    in6addr2str(&prefix0->addr, 0), prefix0->plen,
 		    name, in6addr2str(&oprefix.addr, 0), oprefix.plen);
@@ -1757,7 +1756,7 @@ add_prefix(head, name, type, prefix0)
 	if (IN6_IS_ADDR_MULTICAST(&oprefix.addr) ||
 	    IN6_IS_ADDR_LINKLOCAL(&oprefix.addr) ||
 	    IN6_IS_ADDR_SITELOCAL(&oprefix.addr)) {
-		dprintf(LOG_ERR, FNAME, "invalid prefix address: %s",
+		dprint(LOG_ERR, FNAME, "invalid prefix address: %s",
 		    in6addr2str(&oprefix.addr, 0));
 		return (-1);
 	}
@@ -1765,11 +1764,11 @@ add_prefix(head, name, type, prefix0)
 	/* prefix duplication check */
 	if (dhcp6_find_listval(head, type, &oprefix, 0)) {
 		if (type == DHCP6_LISTVAL_PREFIX6) {
-			dprintf(LOG_NOTICE, FNAME,
+			dprint(LOG_NOTICE, FNAME,
 			    "duplicated prefix: %s/%d for %s",
 			    in6addr2str(&oprefix.addr, 0), oprefix.plen, name);
 		} else {
-			dprintf(LOG_NOTICE, FNAME,
+			dprint(LOG_NOTICE, FNAME,
 			    "duplicated address: %s for %s",
 			    in6addr2str(&oprefix.addr, 0), name);
 		}
@@ -1781,12 +1780,12 @@ add_prefix(head, name, type, prefix0)
 	    (oprefix.pltime == DHCP6_DURATION_INFINITE ||
 	    oprefix.pltime > oprefix.vltime)) {
 		if (type == DHCP6_LISTVAL_PREFIX6) {
-			dprintf(LOG_NOTICE, FNAME,
+			dprint(LOG_NOTICE, FNAME,
 			    "%s/%d has larger preferred lifetime "
 			    "than valid lifetime",
 			    in6addr2str(&oprefix.addr, 0), oprefix.plen);
 		} else {
-			dprintf(LOG_NOTICE, FNAME,
+			dprint(LOG_NOTICE, FNAME,
 			    "%s has larger preferred lifetime "
 			    "than valid lifetime",
 			    in6addr2str(&oprefix.addr, 0));
@@ -1915,12 +1914,12 @@ configure_pool(poollist)
 {
 	struct cf_namelist *plp;
 
-	dprintf(LOG_DEBUG, FNAME, "called");
+	dprint(LOG_DEBUG, FNAME, "called");
 
 	if (poollist && dhcp6_mode != DHCP6_MODE_SERVER) {
-		dprintf(LOG_ERR, FNAME, "%s:%d "
-			"pool statement is server-only",
-			configfilename, poollist->line);
+		dprint(LOG_ERR, FNAME, "%s:%d "
+		       "pool statement is server-only",
+		       configfilename, poollist->line);
 		goto bad;
 	}
 
@@ -1935,23 +1934,22 @@ configure_pool(poollist)
 				range = cfl->ptr;
 				break;
 			default:
-				dprintf(LOG_ERR, FNAME, "%s:%d "
-					"invalid pool configuration",
-					configfilename, cfl->line);
+				dprint(LOG_ERR, FNAME, "%s:%d "
+				       "invalid pool configuration",
+				       configfilename, cfl->line);
 				goto bad;
 			}
 		}
 
 		if (!range) {
-			dprintf(LOG_ERR, FNAME, "%s:%d "
-				"pool '%s' has no range declaration",
-				configfilename, plp->line,
-				plp->name);
+			dprint(LOG_ERR, FNAME, "%s:%d "
+			       "pool '%s' has no range declaration",
+			       configfilename, plp->line, plp->name);
 			goto bad;
 		}
 		if ((pool = create_pool(plp->name, range)) == NULL) {
-			dprintf(LOG_ERR, FNAME,
-				"faled to craete pool '%s'", plp->name);
+			dprint(LOG_ERR, FNAME,
+			       "faled to craete pool '%s'", plp->name);
 			goto bad;
 		}
 		pool->next = pool_conflist0;
@@ -1971,7 +1969,7 @@ clear_poolconf(plist)
 {
 	struct pool_conf *pool, *pool_next;
 
-	dprintf(LOG_DEBUG, FNAME, "called");
+	dprint(LOG_DEBUG, FNAME, "called");
 
 	for (pool = plist; pool; pool = pool_next) {
 		pool_next = pool->next;
@@ -1999,8 +1997,8 @@ create_dynamic_hostconf(duid, pool)
 	if (dynamic_hostconf_count >= DHCP6_DYNAMIC_HOSTCONF_MAX) {
 		struct dynamic_hostconf_listhead *head = &dynamic_hostconf_head;
 
-		dprintf(LOG_DEBUG, FNAME, "reached to the max count (count=%lu)",
-			dynamic_hostconf_count);
+		dprint(LOG_DEBUG, FNAME, "reached to the max count (count=%lu)",
+		       dynamic_hostconf_count);
 
 		/* Find the last entry that doesn't need authentication */
 		TAILQ_FOREACH_REVERSE(dynconf, head, dynamic_hostconf_listhead, link)
@@ -2013,14 +2011,14 @@ create_dynamic_hostconf(duid, pool)
 		clear_hostconf(dynconf->host);
 	} else {
 		if ((dynconf = malloc(sizeof(*dynconf))) == NULL) {
-			dprintf(LOG_ERR, FNAME, "memory allocation failed");
+			dprint(LOG_ERR, FNAME, "memory allocation failed");
 			return (NULL);
 		}
 	}
 	memset(dynconf, 0, sizeof(*dynconf));
 
 	if ((host = malloc(sizeof(*host))) == NULL) {
-		dprintf(LOG_ERR, FNAME, "memory allocation failed");
+		dprint(LOG_ERR, FNAME, "memory allocation failed");
 		goto bad;
 	}
 	memset(host, 0, sizeof(*host));
@@ -2030,7 +2028,7 @@ create_dynamic_hostconf(duid, pool)
 	if ((strid = duidstr(duid)) == NULL)
 		strid = "???";
 	if ((host->name = strdup(strid)) == NULL) {
-		dprintf(LOG_ERR, FNAME, "memory allocation failed");
+		dprint(LOG_ERR, FNAME, "memory allocation failed");
 		goto bad;
 	}
 	if (duidcpy(&host->duid, duid) != 0) {
@@ -2038,7 +2036,7 @@ create_dynamic_hostconf(duid, pool)
 	}
 	if (pool->name) {
 		if ((host->pool.name = strdup(pool->name)) == NULL) {
-			dprintf(LOG_ERR, FNAME, "memory allocation failed");
+			dprint(LOG_ERR, FNAME, "memory allocation failed");
 			goto bad;
 		}
 	}
@@ -2049,7 +2047,7 @@ create_dynamic_hostconf(duid, pool)
 	TAILQ_INSERT_HEAD(&dynamic_hostconf_head, dynconf, link);
 	dynamic_hostconf_count++; 
 
-	dprintf(LOG_DEBUG, FNAME, "created host_conf (name=%s)", host->name);
+	dprint(LOG_DEBUG, FNAME, "created host_conf (name=%s)", host->name);
 
 	return (host);
 
@@ -2097,22 +2095,22 @@ create_pool(name, range)
 		return (NULL);
 	}
 
-	dprintf(LOG_DEBUG, FNAME, "name=%s, range=%s->%s", name,
-		in6addr2str(&range->min, 0), in6addr2str(&range->max, 0));
+	dprint(LOG_DEBUG, FNAME, "name=%s, range=%s->%s", name,
+	       in6addr2str(&range->min, 0), in6addr2str(&range->max, 0));
 
 	if (in6_addr_cmp(&range->min, &range->max) > 0) {
-		dprintf(LOG_ERR, FNAME, "invalid address range %s->%s",
-			in6addr2str(&range->min, 0),
-			in6addr2str(&range->max, 0));
+		dprint(LOG_ERR, FNAME, "invalid address range %s->%s",
+		       in6addr2str(&range->min, 0),
+		       in6addr2str(&range->max, 0));
 		return (NULL);
 	}
 
 	if ((pool = malloc(sizeof(struct pool_conf))) == NULL) {
-		dprintf(LOG_ERR, FNAME, "memory allocation failed");
+		dprint(LOG_ERR, FNAME, "memory allocation failed");
 		return (NULL);
 	}
 	if ((pool->name = strdup(name)) == NULL) {
-		dprintf(LOG_ERR, FNAME, "memory allocation failed");
+		dprint(LOG_ERR, FNAME, "memory allocation failed");
 		free(pool);
 		return (NULL);
 	}
@@ -2131,16 +2129,16 @@ find_pool(name)
 	if (!name)
 		return (NULL);
 
-	dprintf(LOG_DEBUG, FNAME, "name=%s", name);
+	dprint(LOG_DEBUG, FNAME, "name=%s", name);
 
 	for (pool = pool_conflist; pool; pool = pool->next) {
 		if (strcmp(name, pool->name) == 0) {
-			dprintf(LOG_DEBUG, FNAME, "found (name=%s)", name);
+			dprint(LOG_DEBUG, FNAME, "found (name=%s)", name);
 			return (pool);
 		}
 	}
 
-	dprintf(LOG_DEBUG, FNAME, "not found (name=%s)", name);
+	dprint(LOG_DEBUG, FNAME, "not found (name=%s)", name);
 
 	return (NULL);
 }
@@ -2154,7 +2152,7 @@ get_free_address_from_pool(pool, addr)
 	if (!pool || !addr)
 		return (0);
 
-	dprintf(LOG_DEBUG, FNAME, "called (pool=%s)", pool->name);
+	dprint(LOG_DEBUG, FNAME, "called (pool=%s)", pool->name);
 
 	for (cur = pool->min; in6_addr_cmp(&cur, &pool->max) <= 0;
 	    in6_addr_inc(&cur)) {
@@ -2162,17 +2160,17 @@ get_free_address_from_pool(pool, addr)
 		    !IN6_IS_ADDR_MULTICAST(&cur) &&
 		    !IN6_IS_ADDR_LINKLOCAL(&cur) &&
 		    !IN6_IS_ADDR_SITELOCAL(&cur)) {
-			dprintf(LOG_DEBUG, FNAME, "found %s",
-				in6addr2str(&cur, 0));
+			dprint(LOG_DEBUG, FNAME, "found %s",
+			       in6addr2str(&cur, 0));
 			*addr= cur;
 			return 1;
 		}
 
-		dprintf(LOG_DEBUG, FNAME, "next address %s",
-			in6addr2str(&cur, 0));
+		dprint(LOG_DEBUG, FNAME, "next address %s",
+		       in6addr2str(&cur, 0));
 	}
 
-	dprintf(LOG_NOTICE, FNAME, "no available address");
+	dprint(LOG_NOTICE, FNAME, "no available address");
 	return 0;
 }
 
@@ -2184,8 +2182,8 @@ is_available_in_pool(pool, addr)
 	if (!pool || !addr)
 		return (0);
 
-	dprintf(LOG_DEBUG, FNAME, "pool=%s, addr=%s",
-		 pool->name, in6addr2str(addr, 0));
+	dprint(LOG_DEBUG, FNAME, "pool=%s, addr=%s",
+	       pool->name, in6addr2str(addr, 0));
 
 	if (in6_addr_cmp(addr, &pool->min) >= 0 &&
 		in6_addr_cmp(addr, &pool->max) <= 0 &&
@@ -2196,8 +2194,8 @@ is_available_in_pool(pool, addr)
 		return (1);
 	}
 
-	dprintf(LOG_DEBUG, FNAME, "unavailable address (pool=%s, addr=%s)",
-		 pool->name, in6addr2str(addr, 0));
+	dprint(LOG_DEBUG, FNAME, "unavailable address (pool=%s, addr=%s)",
+	       pool->name, in6addr2str(addr, 0));
 
 	return (0);
 }
