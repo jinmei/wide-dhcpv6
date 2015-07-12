@@ -245,9 +245,9 @@ struct authinfo {
 	/* parameters for Secure DHCPv6 */
 	int sig_algorithm;	/* signature algorithm */
 	int hash_algorithm;	/* hash algorithm */
-	const char *pubkey_file;	/* PEM file for public key */
+	char *pubkey_file;	/* PEM file for public key */
 	void *pubkey; /* alg/implementation-dependent blob for public key */
-	const char *privkey_file;	/* PEM file for private key */
+	char *privkey_file;	/* PEM file for private key */
 	void *privkey; /* alg/implementation-dependent blob for private key */
 };
 

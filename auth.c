@@ -64,7 +64,15 @@
 
 #include <syslog.h>
 #include <string.h>
+#include <stdio.h>
 #include <errno.h>
+
+#ifdef HAVE_OPENSSL
+#include <openssl/err.h>
+#include <openssl/rsa.h>
+#include <openssl/pem.h>
+#include <openssl/sha.h>
+#endif
 
 #include <dhcp6.h>
 #include <config.h>
@@ -100,6 +108,107 @@ static void md5_init __P((md5_t *));
 static void md5_invalidate __P((md5_t *));
 static void md5_final __P((md5_t *, unsigned char *));
 static void md5_update __P((md5_t *, const unsigned char *, unsigned int));
+
+int
+dhcp6_auth_init()
+{
+	static int initialized = 0; /* XXX: thread-unsafe */
+
+	if (initialized)
+		return (0);
+
+#ifdef HAVE_OPENSSL
+	ERR_load_crypto_strings();
+#endif
+
+	initialized = 1;
+	return (0);
+}
+
+static int
+read_key(int sig_alg, const char *key_file, void **keyp, int is_publickey)
+{
+	FILE *fp = NULL;
+	int ret = -1;
+
+	*keyp = NULL;
+	if (sig_alg != DHCP6_SIGALG_RSASSA_PKCS1_V1_5) {
+		dprint(LOG_ERR, FNAME, "unknown signing algorithm: %d",
+		       sig_alg);
+		return (-1);
+	}
+	fp = fopen(key_file, "r");
+	if (fp == NULL) {
+		dprint(LOG_ERR, FNAME, "failed to open key file (%s): %s",
+		       key_file, strerror(errno));
+		goto cleanup;
+	}
+#ifdef HAVE_OPENSSL
+	else {
+		RSA *rsa;
+		if (is_publickey)
+			rsa = PEM_read_RSA_PUBKEY(fp, NULL, NULL, NULL);
+		else
+			rsa = PEM_read_RSAPrivateKey(fp, NULL, NULL, NULL);
+		if (rsa == NULL) {
+			dprint(LOG_ERR, FNAME,
+			       "failed to read key file (%s): %s", key_file,
+			       ERR_reason_error_string(ERR_get_error()));
+			goto cleanup;
+		}
+		*keyp = rsa;
+	}
+#else
+	dprint(LOG_ERR, FNAME, "missing crypto library");
+	goto cleanup;
+#endif
+	ret = 0;
+
+  cleanup:
+	if (fp != NULL)
+		fclose(fp);
+	return (ret);
+}
+
+int
+dhcp6_read_pubkey(int sig_alg, const char *key_file, void **keyp)
+{
+	return read_key(sig_alg, key_file, keyp, 1);
+}
+
+int
+dhcp6_read_privkey(int sig_alg, const char *key_file, void **keyp)
+{
+	return read_key(sig_alg, key_file, keyp, 0);
+}
+
+void
+dhcp6_free_pubkey(int sig_alg, void **keyp)
+{
+	void *key = *keyp;
+
+	*keyp = NULL;
+	if (sig_alg != DHCP6_SIGALG_RSASSA_PKCS1_V1_5)
+		return;
+#ifdef HAVE_OPENSSL
+	else if (key != NULL)
+		RSA_free((RSA *)key);
+#endif
+}
+
+void
+dhcp6_free_privkey(int sig_alg, void **keyp)
+{
+	void *key = *keyp;
+
+	*keyp = NULL;
+	if (sig_alg != DHCP6_SIGALG_RSASSA_PKCS1_V1_5)
+		return;
+#ifdef HAVE_OPENSSL
+	else if (key != NULL)
+		RSA_free((RSA *)key);
+#endif
+}
 
 int
 dhcp6_validate_key(key)

@@ -856,7 +856,7 @@ find_keybyname(head, kname)
 }
 
 /* Copy a string assuming it's in the form of "..." */
-static const char *
+static char *
 copy_quotedstr(const char *str) {
 	char *ret = strdup(str + 1);
 	if (ret != NULL)
@@ -870,6 +870,12 @@ configure_authinfo(authlist)
 {
 	struct cf_namelist *auth;
 	struct authinfo *ainfo;
+
+	if (dhcp6_auth_init()) {
+		dprint(LOG_ERR, FNAME,
+		       "failed to initialize authentication module");
+		goto bad;
+	}
 
 	for (auth = authlist; auth; auth = auth->next) {
 		struct cf_list *cfl;
@@ -1011,6 +1017,20 @@ configure_authinfo(authlist)
 			}
 			if (ainfo->hash_algorithm == DHCP6_HASHALG_UNDEF)
 				ainfo->hash_algorithm = DHCP6_HASHALG_SHA256;
+			if (dhcp6_read_pubkey(ainfo->sig_algorithm,
+					      ainfo->pubkey_file,
+					      &ainfo->pubkey)) {
+				dprint(LOG_ERR, FNAME, "failed to configure "
+				       "public key: %s", ainfo->pubkey_file);
+				goto bad;
+			}
+			if (dhcp6_read_privkey(ainfo->sig_algorithm,
+					       ainfo->privkey_file,
+					       &ainfo->privkey)) {
+				dprint(LOG_ERR, FNAME, "failed to configure "
+				       "private key: %s", ainfo->privkey_file);
+				goto bad;
+			}
 		} else {
 			if (ainfo->algorithm == DHCP6_AUTHALG_UNDEF)
 				ainfo->algorithm = DHCP6_AUTHALG_HMACMD5;
@@ -1022,7 +1042,7 @@ configure_authinfo(authlist)
 	return (0);
 
   bad:
-	/* there is currently nothing special to recover the error */
+	/* there is currently nothing special to recover from the error */
 	return (-1);
 }
 
@@ -1587,6 +1607,11 @@ clear_authinfo(alist)
 
 	for (auth = alist; auth; auth = auth_next) {
 		auth_next = auth->next;
+		free(auth->name);
+		free(auth->pubkey_file);
+		dhcp6_free_pubkey(auth->sig_algorithm, &auth->pubkey);
+		free(auth->privkey_file);
+		dhcp6_free_privkey(auth->sig_algorithm, &auth->pubkey);
 		free(auth);
 	}
 }
