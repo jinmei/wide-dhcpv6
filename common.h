@@ -140,7 +140,6 @@ extern int dhcp6_vbuf_cmp __P((struct dhcp6_vbuf *, struct dhcp6_vbuf *));
 extern struct dhcp6_event *dhcp6_create_event __P((struct dhcp6_if *, int));
 extern void dhcp6_remove_event __P((struct dhcp6_event *));
 extern void dhcp6_remove_evdata __P((struct dhcp6_event *));
-extern struct authparam *new_authparam __P((int, int, int));
 extern struct authparam *copy_authparam __P((struct authparam *));
 extern void free_authparam __P((struct authparam **));
 extern int dhcp6_auth_replaycheck __P((int, u_int64_t, u_int64_t));

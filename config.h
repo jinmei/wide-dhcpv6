@@ -56,13 +56,20 @@ struct pool_conf {
 /* run-time authentication parameters */
 struct authparam {
 	int authproto;
-	int authalgorithm;
-	int authrdm;
-	struct keyinfo *key;
-	int flags;
+	union {
+		struct {
+			int authalgorithm;
+			int authrdm;
+			struct keyinfo *key; /* use shallow copy */
+			int flags;
 #define AUTHPARAM_FLAGS_NOPREVRD	0x1
 
-	u_int64_t prevrd;	/* previous RD value provided by the peer */
+			/* previous RD value provided by the peer */
+			u_int64_t prevrd;
+		} rfc3315;
+		struct sedhcpv6 {
+		} sedhcpv6;
+	};
 };
 
 /* per-interface information */

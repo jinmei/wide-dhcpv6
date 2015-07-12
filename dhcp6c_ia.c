@@ -297,8 +297,8 @@ update_authparam(ia, authparam)
 	}
 
 	/* update the previous RD value and flags */
-	ia->authparam->prevrd = authparam->prevrd;
-	ia->authparam->flags = authparam->flags;
+	ia->authparam->rfc3315.prevrd = authparam->rfc3315.prevrd;
+	ia->authparam->rfc3315.flags = authparam->rfc3315.flags;
 
 	return (0);
 }

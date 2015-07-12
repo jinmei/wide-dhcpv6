@@ -1621,11 +1621,13 @@ create_authparam(struct authinfo *ainfo) {
 	memset(authparam, 0, sizeof(*authparam));
 
 	authparam->authproto = ainfo->protocol;
-	authparam->authalgorithm = ainfo->algorithm;
-	authparam->authrdm = ainfo->rdm;
-	authparam->key = NULL;
-	authparam->flags |= AUTHPARAM_FLAGS_NOPREVRD;
-	authparam->prevrd = 0;
+	if (authparam->authproto != DHCP6_AUTHPROTO_SEDHCPV6) {
+		authparam->rfc3315.authalgorithm = ainfo->algorithm;
+		authparam->rfc3315.authrdm = ainfo->rdm;
+		authparam->rfc3315.key = NULL;
+		authparam->rfc3315.flags |= AUTHPARAM_FLAGS_NOPREVRD;
+		authparam->rfc3315.prevrd = 0;
+	}
 
 	return (authparam);
 }

@@ -1329,13 +1329,13 @@ client6_send(ev)
 	if (ev->authparam != NULL) {
 		switch (ev->authparam->authproto) {
 		case DHCP6_AUTHPROTO_DELAYED:
-			if (ev->authparam->key == NULL)
+			if (ev->authparam->rfc3315.key == NULL)
 				break;
 
 			if (dhcp6_calc_mac((unsigned char *)dh6, len,
 			    optinfo.authproto, optinfo.authalgorithm,
 			    optinfo.delayedauth_offset + sizeof(*dh6),
-			    ev->authparam->key)) {
+			    ev->authparam->rfc3315.key)) {
 				dprint(LOG_WARNING, FNAME,
 				    "failed to calculate MAC");
 				goto end;
@@ -1967,12 +1967,12 @@ process_auth(authparam, dh6, len, optinfo)
 		 * Replay protection.  If we do not know the previous RD value,
 		 * we accept the message anyway (XXX).
 		 */
-		if ((authparam->flags & AUTHPARAM_FLAGS_NOPREVRD)) {
+		if ((authparam->rfc3315.flags & AUTHPARAM_FLAGS_NOPREVRD)) {
 			dprint(LOG_WARNING, FNAME, "previous RD value is "
 			    "unknown (accept it)");
 		} else {
 			if (dhcp6_auth_replaycheck(optinfo->authrdm,
-			    authparam->prevrd, optinfo->authrd)) {
+			    authparam->rfc3315.prevrd, optinfo->authrd)) {
 				dprint(LOG_INFO, FNAME,
 				    "possible replay attack detected");
 				break;
@@ -1980,7 +1980,7 @@ process_auth(authparam, dh6, len, optinfo)
 		}
 
 		/* identify the secret key */
-		if ((key = authparam->key) != NULL) {
+		if ((key = authparam->rfc3315.key) != NULL) {
 			/*
 			 * If we already know a key, its identification should
 			 * match that contained in the received option.
@@ -2007,7 +2007,7 @@ process_auth(authparam, dh6, len, optinfo)
 				dprint(LOG_DEBUG, FNAME, "found key for "
 				    "authentication: %s", key->name);
 			}
-			authparam->key = key;
+			authparam->rfc3315.key = key;
 		}
 
 		/* check for the key lifetime */
@@ -2049,8 +2049,8 @@ process_auth(authparam, dh6, len, optinfo)
 		}
 	} else {
 		/* if authenticated, update the "previous" RD value */
-		authparam->prevrd = optinfo->authrd;
-		authparam->flags &= ~AUTHPARAM_FLAGS_NOPREVRD;
+		authparam->rfc3315.prevrd = optinfo->authrd;
+		authparam->rfc3315.flags &= ~AUTHPARAM_FLAGS_NOPREVRD;
 	}
 
 	return (0);
@@ -2067,8 +2067,8 @@ set_auth(ev, optinfo)
 		return (0);
 
 	optinfo->authproto = authparam->authproto;
-	optinfo->authalgorithm = authparam->authalgorithm;
-	optinfo->authrdm = authparam->authrdm;
+	optinfo->authalgorithm = authparam->rfc3315.authalgorithm;
+	optinfo->authrdm = authparam->rfc3315.authrdm;
 
 	switch (authparam->authproto) {
 	case DHCP6_AUTHPROTO_UNDEF: /* we simply do not need authentication */
@@ -2091,16 +2091,16 @@ set_auth(ev, optinfo)
 			return (0); /* no auth information is needed */
 		}
 
-		if (authparam->key == NULL) {
+		if (authparam->rfc3315.key == NULL) {
 			dprint(LOG_INFO, FNAME,
 			    "no authentication key for %s",
 			    dhcp6_event_statestr(ev));
 			return (-1);
 		}
 
-		if (dhcp6_validate_key(authparam->key)) {
+		if (dhcp6_validate_key(authparam->rfc3315.key)) {
 			dprint(LOG_INFO, FNAME, "key %s is invalid",
-			    authparam->key->name);
+			    authparam->rfc3315.key->name);
 			return (-1);
 		}
 
@@ -2111,8 +2111,9 @@ set_auth(ev, optinfo)
 			return (-1);
 		}
 
-		optinfo->delayedauth_keyid = authparam->key->keyid;
-		optinfo->delayedauth_realmlen = authparam->key->realmlen;
+		optinfo->delayedauth_keyid = authparam->rfc3315.key->keyid;
+		optinfo->delayedauth_realmlen =
+			authparam->rfc3315.key->realmlen;
 		optinfo->delayedauth_realmval =
 		    malloc(optinfo->delayedauth_realmlen);
 		if (optinfo->delayedauth_realmval == NULL) {
@@ -2120,7 +2121,8 @@ set_auth(ev, optinfo)
 			    "for authentication realm");
 			return (-1);
 		}
-		memcpy(optinfo->delayedauth_realmval, authparam->key->realm,
+		memcpy(optinfo->delayedauth_realmval,
+		    authparam->rfc3315.key->realm,
 		    optinfo->delayedauth_realmlen);
 
 		break;
