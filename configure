@@ -688,6 +688,7 @@ with_localdbdir
 enable_pedant
 with_user
 with_group
+with_openssl
 '
       ac_precious_vars='build_alias
 host_alias
@@ -1315,6 +1316,8 @@ Optional Packages:
   --with-localdbdir=VALUE where to put local DB files
   --with-user=USER	set the owner of the programs
   --with-group=GROUP	set the group owner of the programs
+  --with-openssl=PATH     Build with OpenSSL [yes|no|path]. (required for
+                          Secure DHCPv6)
 
 Some influential environment variables:
   CC          C compiler command
@@ -4761,6 +4764,19 @@ fi
 rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
 
 CFLAGS="$CFLAGS -D__APPLE_USE_RFC_3542"
+
+
+# Check whether --with-openssl was given.
+if test "${with_openssl+set}" = set; then :
+  withval=$with_openssl; use_openssl="$withval"
+else
+  use_openssl="no"
+fi
+
+if test "$use_openssl" != no; then
+   CPPFLAGS="$CPPFLAGS -I${use_openssl}/include"
+   LDFLAGS="$LDFLAGS -lcrypto"
+fi
 
 for ac_header in stdarg.h
 do :

@@ -251,6 +251,16 @@ dnl MacOS X requires a special definition to enable the IPv6 advanced API
 dnl TODO: this should be deined only for MacOS X
 CFLAGS="$CFLAGS -D__APPLE_USE_RFC_3542"
 
+dnl Openssl (TODO: add auto-detect support)
+AC_ARG_WITH(openssl,
+	AC_HELP_STRING([--with-openssl=PATH],
+	[Build with OpenSSL [yes|no|path]. (required for Secure DHCPv6)]),
+	[use_openssl="$withval"], [use_openssl="no"])
+if test "$use_openssl" != no; then
+   CPPFLAGS="$CPPFLAGS -I${use_openssl}/include"
+   LDFLAGS="$LDFLAGS -lcrypto"
+fi
+
 AC_CHECK_HEADERS(stdarg.h)
 
 AC_OUTPUT(Makefile)

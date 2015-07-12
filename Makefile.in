@@ -38,6 +38,7 @@ group= @group@
 
 CFLAGS=	@CFLAGS@ @DEFS@ -DSYSCONFDIR=\"${sysconfdir}\" \
 	-DLOCALDBDIR=\"${localdbdir}\"
+CPPFLAGS=@CPPFLAGS@
 LDFLAGS=@LDFLAGS@
 LIBOBJS=@LIBOBJS@
 LIBS=	@LIBS@ @LEXLIB@
