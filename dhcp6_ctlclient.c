@@ -63,20 +63,28 @@ static char *ctlport;
 
 static enum { CTLCLIENT, CTLSERVER } ctltype = CTLCLIENT;
 
-static inline int put16 __P((char **, int *, u_int16_t));
-static inline int put32 __P((char **, int *, u_int32_t));
-static inline int putval __P((char **, int *, void *, size_t));
+static inline int put16 __P((unsigned char **, unsigned int *, u_int16_t));
+static inline int put32 __P((unsigned char **, unsigned int *, u_int32_t));
+static inline int putval __P((unsigned char **, unsigned int *,
+			      void *, size_t));
 
 static int setup_auth __P((char *, struct keyinfo *, int *));
-static int make_command __P((int, char **, char **, size_t *,
+static int make_command __P((int, char **, unsigned char **, size_t *,
     struct keyinfo *, int));
-static int make_remove_command __P((int, char **, char **, int *));
-static int make_start_command __P((int, char **, char **, int *));
-static int make_stop_command __P((int, char **, char **, int *));
-static int make_binding_object __P((int, char **, char **, int *));
-static int make_interface_object __P((int, char **, char **, int *));
-static int make_ia_object __P((int, char **, char **, int *));
-static int parse_duid __P((char *, int *, char **, int *));
+static int make_remove_command __P((int, char **, unsigned char **,
+				    unsigned int *));
+static int make_start_command __P((int, char **, unsigned char **,
+				   unsigned int *));
+static int make_stop_command __P((int, char **, unsigned char **,
+				  unsigned int *));
+static int make_binding_object __P((int, char **, unsigned char **,
+				    unsigned int *));
+static int make_interface_object __P((int, char **, unsigned char **,
+				      unsigned int *));
+static int make_ia_object __P((int, char **, unsigned char **,
+			       unsigned int *));
+static int parse_duid __P((char *, unsigned int *, unsigned char **,
+			   unsigned int *));
 static void usage __P((void));
 
 int
@@ -86,7 +94,7 @@ main(argc, argv)
 {
 	int cc, ch, s, error, passed;
 	int Cflag = 0, Sflag = 0;
-	char *cbuf;
+	unsigned char *cbuf;
 	size_t clen;
 	struct addrinfo hints, *res0, *res;
 	int digestlen;
@@ -192,7 +200,7 @@ main(argc, argv)
 	cc = write(s, cbuf, clen);
 	if (cc < 0)
 		err(1, "write command");
-	if (cc != clen)
+	if ((unsigned int)cc != clen)
 		errx(1, "failed to send complete command");
 
 	close(s);
@@ -250,12 +258,12 @@ setup_auth(keyfile, key, digestlenp)
 
 static inline int
 put16(bpp, lenp, val)
-	char **bpp;
-	int *lenp;
+	unsigned char **bpp;
+	unsigned int *lenp;
 	u_int16_t val;
 {
-	char *bp = *bpp;
-	int len = *lenp;
+	unsigned char *bp = *bpp;
+	unsigned int len = *lenp;
 
 	if (len < sizeof(val))
 		return (-1);
@@ -273,12 +281,12 @@ put16(bpp, lenp, val)
 
 static inline int
 put32(bpp, lenp, val)
-	char **bpp;
-	int *lenp;
+	unsigned char **bpp;
+	unsigned int *lenp;
 	u_int32_t val;
 {
-	char *bp = *bpp;
-	int len = *lenp;
+	unsigned char *bp = *bpp;
+	unsigned int len = *lenp;
 
 	if (len < sizeof(val))
 		return (-1);
@@ -296,13 +304,13 @@ put32(bpp, lenp, val)
 
 static inline int
 putval(bpp, lenp, val, valsize)
-	char **bpp;
-	int *lenp;
+	unsigned char **bpp;
+	unsigned int *lenp;
 	void *val;
 	size_t valsize;
 {
-	char *bp = *bpp;
-	int len = *lenp;
+	unsigned char *bp = *bpp;
+	unsigned int len = *lenp;
 
 	if (len < valsize)
 		return (-1);
@@ -320,15 +328,16 @@ putval(bpp, lenp, val, valsize)
 static int
 make_command(argc, argv, bufp, lenp, key, authlen)
 	int argc;
-	char **argv, **bufp;
+	char **argv;
+	unsigned char **bufp;
 	size_t *lenp;
 	struct keyinfo *key;
 	int authlen;
 {
 	struct dhcp6ctl ctl;
-	char commandbuf[4096];	/* XXX: ad-hoc value */
-	char *bp, *buf, *mac;
-	int buflen, len;
+	unsigned char commandbuf[4096];	/* XXX: ad-hoc value */
+	unsigned char *bp, *buf, *mac;
+	unsigned int buflen, len;
 	int argc_passed = 0, passed;
 	time_t now;
 
@@ -392,8 +401,9 @@ make_command(argc, argv, bufp, lenp, key, authlen)
 
 	mac = commandbuf + sizeof(ctl);
 	memset(mac, 0, authlen);
-	if (dhcp6_calc_mac(commandbuf, len, DHCP6CTL_AUTHPROTO_UNDEF,
-	    DHCP6CTL_AUTHALG_HMACMD5, sizeof(ctl), key) != 0) {
+	if (dhcp6_calc_mac((unsigned char *)commandbuf, len,
+	    DHCP6CTL_AUTHPROTO_UNDEF, DHCP6CTL_AUTHALG_HMACMD5,
+	    sizeof(ctl), key) != 0) {
 		warnx("failed to calculate MAC");
 		return (-1);
 	}
@@ -414,8 +424,10 @@ make_command(argc, argv, bufp, lenp, key, authlen)
 
 static int
 make_remove_command(argc, argv, bpp, lenp)
-	int argc, *lenp;
-	char **argv, **bpp;
+	int argc;
+	unsigned int *lenp;
+	char **argv;
+	unsigned char **bpp;
 {
 	int argc_passed = 0, passed;
 
@@ -447,8 +459,10 @@ make_remove_command(argc, argv, bpp, lenp)
 
 static int
 make_start_command(argc, argv, bpp, lenp)
-	int argc, *lenp;
-	char **argv, **bpp;
+	int argc;
+	char **argv;
+	unsigned char **bpp;
+	unsigned int *lenp;
 {
 	int argc_passed = 0, passed;
 
@@ -485,8 +499,10 @@ make_start_command(argc, argv, bpp, lenp)
 
 static int
 make_stop_command(argc, argv, bpp, lenp)
-	int argc, *lenp;
-	char **argv, **bpp;
+	int argc;
+	char **argv;
+	unsigned char **bpp;
+	unsigned int *lenp;
 {
 	int argc_passed = 0, passed;
 
@@ -521,8 +537,10 @@ make_stop_command(argc, argv, bpp, lenp)
 
 static int
 make_interface_object(argc, argv, bpp, lenp)
-	int argc, *lenp;
-	char **argv, **bpp;
+	int argc;
+	char **argv;
+	unsigned char **bpp;
+	unsigned int *lenp;
 {
 	int iflen;
 	int argc_passed = 0;
@@ -548,8 +566,10 @@ make_interface_object(argc, argv, bpp, lenp)
 
 static int
 make_binding_object(argc, argv, bpp, lenp)
-	int argc, *lenp;
-	char **argv, **bpp;
+	int argc;
+	char **argv;
+	unsigned char **bpp;
+	unsigned int *lenp;
 {
 	int argc_passed = 0, passed;
 
@@ -582,13 +602,15 @@ make_binding_object(argc, argv, bpp, lenp)
 
 static int
 make_ia_object(argc, argv, bpp, lenp)
-	int argc, *lenp;
-	char **argv, **bpp;
+	int argc;
+	char **argv;
+	unsigned char **bpp;
+	unsigned int *lenp;
 {
 	struct dhcp6ctl_iaspec iaspec;
-	int duidlen, dummylen = 0;
+	unsigned int duidlen, dummylen = 0;
 	int argc_passed = 0;
-	char *dummy = NULL;
+	unsigned char *dummy = NULL;
 
 	if (argc < 3) {
 		/*
@@ -634,12 +656,13 @@ make_ia_object(argc, argv, bpp, lenp)
 static int
 parse_duid(str, lenp, bufp, buflenp)
 	char *str;
-	int *lenp;
-	char **bufp;
-	int *buflenp;
+	unsigned int *lenp;
+	unsigned char **bufp;
+	unsigned int *buflenp;
 {
-	char *buf = *bufp;
-	char *cp, *bp;
+	unsigned char *buf = *bufp;
+	const char *cp;
+	unsigned char *bp;
 	int duidlen, slen, buflen;
 	unsigned int x;
 

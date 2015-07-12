@@ -71,10 +71,10 @@ struct dhcp6_commandctx {
 	TAILQ_ENTRY(dhcp6_commandctx) link;
 
 	int s;			/* communication socket */
-	char inputbuf[1024];	/* input buffer */
+	unsigned char inputbuf[1024];	/* input buffer */
 	ssize_t input_len;
 	ssize_t input_filled;
-	int (*callback) __P((char *, ssize_t));
+	int (*callback) __P((unsigned char *, ssize_t));
 };
 
 int
@@ -204,7 +204,7 @@ dhcp6_ctl_authinit(keyfile, keyinfop, digestlenp)
 int
 dhcp6_ctl_acceptcommand(sl, callback)
 	int sl;
-	int (*callback) __P((char *, ssize_t));
+	int (*callback) __P((unsigned char *, ssize_t));
 {
 	int s;
 	struct sockaddr_storage from_ss;
@@ -285,7 +285,7 @@ dhcp6_ctl_readcommand(read_fds)
 	fd_set *read_fds;
 {
 	struct dhcp6_commandctx *ctx, *ctx_next;
-	char *cp;
+	unsigned char *cp;
 	int cc, resid, result;
 	struct dhcp6ctl *ctlhead;
 
@@ -329,7 +329,8 @@ dhcp6_ctl_readcommand(read_fds)
 				default:
 					break;
 				}
-			} else if (ctx->input_len > sizeof(ctx->inputbuf)) {
+			} else if ((size_t)ctx->input_len >
+				   sizeof(ctx->inputbuf)) {
 				dprint(LOG_INFO, FNAME,
 				    "too large command (%d bytes)",
 				    ctx->input_len);

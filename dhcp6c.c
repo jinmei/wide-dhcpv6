@@ -108,15 +108,17 @@ static int ctldigestlen;
 
 static int infreq_mode = 0;
 
-static inline int get_val32 __P((char **, int *, u_int32_t *));
-static inline int get_ifname __P((char **, int *, char *, int));
+static inline int get_val32 __P((unsigned char **, unsigned int *,
+				 u_int32_t *));
+static inline int get_ifname __P((unsigned char **, unsigned int *,
+				  char *, unsigned int));
 
 static void usage __P((void));
 static void client6_init __P((void));
 static void client6_startall __P((int));
 static void free_resources __P((struct dhcp6_if *));
 static void client6_mainloop __P((void));
-static int client6_do_ctlcommand __P((char *, ssize_t));
+static int client6_do_ctlcommand __P((unsigned char *, ssize_t));
 static void client6_reload __P((void));
 static int client6_ifctl __P((char *ifname, u_int16_t));
 static void check_exit __P((void));
@@ -566,12 +568,12 @@ client6_mainloop()
 
 static inline int
 get_val32(bpp, lenp, valp)
-	char **bpp;
-	int *lenp;
+	unsigned char **bpp;
+	unsigned int *lenp;
 	u_int32_t *valp;
 {
-	char *bp = *bpp;
-	int len = *lenp;
+	unsigned char *bp = *bpp;
+	unsigned int len = *lenp;
 	u_int32_t i32;
 
 	if (len < sizeof(*valp))
@@ -588,13 +590,13 @@ get_val32(bpp, lenp, valp)
 
 static inline int
 get_ifname(bpp, lenp, ifbuf, ifbuflen)
-	char **bpp;
-	int *lenp;
+	unsigned char **bpp;
+	unsigned int *lenp;
 	char *ifbuf;
-	int ifbuflen;
+	unsigned int ifbuflen;
 {
-	char *bp = *bpp;
-	int len = *lenp, ifnamelen;
+	unsigned char *bp = *bpp;
+	unsigned int len = *lenp, ifnamelen;
 	u_int32_t i32;
 
 	if (get_val32(bpp, lenp, &i32))
@@ -617,14 +619,14 @@ get_ifname(bpp, lenp, ifbuf, ifbuflen)
 
 static int
 client6_do_ctlcommand(buf, len)
-	char *buf;
+	unsigned char *buf;
 	ssize_t len;
 {
 	struct dhcp6ctl *ctlhead;
 	u_int16_t command, version;
 	u_int32_t p32, ts, ts0;
-	int commandlen;
-	char *bp;
+	unsigned int commandlen;
+	unsigned char *bp;
 	char ifname[IFNAMSIZ];
 	time_t now;
 
@@ -635,7 +637,7 @@ client6_do_ctlcommand(buf, len)
 	command = ntohs(ctlhead->command);
 	commandlen = (int)(ntohs(ctlhead->len));
 	version = ntohs(ctlhead->version);
-	if (len != sizeof(struct dhcp6ctl) + commandlen) {
+	if ((size_t)len != sizeof(struct dhcp6ctl) + commandlen) {
 		dprint(LOG_ERR, FNAME,
 		    "assumption failure: command length mismatch");
 		return (DHCP6CTL_R_FAILURE);
@@ -1331,7 +1333,7 @@ client6_send(ev)
 			if (ev->authparam->key == NULL)
 				break;
 
-			if (dhcp6_calc_mac((char *)dh6, len,
+			if (dhcp6_calc_mac((unsigned char *)dh6, len,
 			    optinfo.authproto, optinfo.authalgorithm,
 			    optinfo.delayedauth_offset + sizeof(*dh6),
 			    ev->authparam->key)) {
@@ -1444,7 +1446,7 @@ client6_recv()
 		return;
 	}
 
-	if (len < sizeof(*dh6)) {
+	if ((size_t)len < sizeof(*dh6)) {
 		dprint(LOG_INFO, FNAME, "short packet (%d bytes)", len);
 		return;
 	}
@@ -2024,8 +2026,8 @@ process_auth(authparam, dh6, len, optinfo)
 		}
 
 		/* validate MAC */
-		if (dhcp6_verify_mac((char *)dh6, len, optinfo->authproto,
-		    optinfo->authalgorithm,
+		if (dhcp6_verify_mac((unsigned char *)dh6, len,
+		    optinfo->authproto, optinfo->authalgorithm,
 		    optinfo->delayedauth_offset + sizeof(*dh6), key) == 0) {
 			dprint(LOG_DEBUG, FNAME, "message authentication "
 			    "validated");

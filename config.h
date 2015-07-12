@@ -329,7 +329,8 @@ extern struct host_conf *find_hostconf __P((struct duid *));
 extern struct authinfo *find_authinfo __P((struct authinfo *, char *));
 extern struct dhcp6_prefix *find_prefix6 __P((struct dhcp6_list *,
 					      struct dhcp6_prefix *));
-extern struct ia_conf *find_iaconf __P((struct ia_conflist *, int, u_int32_t));
+extern struct ia_conf *find_iaconf __P((struct ia_conflist *, iatype_t,
+					u_int32_t));
 extern struct keyinfo *find_key __P((char *, size_t, u_int32_t));
 extern int configure_pool __P((struct cf_namelist *));
 extern struct pool_conf *find_pool __P((const char *));

@@ -130,7 +130,7 @@ AC_REPLACE_FUNCS(arc4random)
 AC_MSG_CHECKING(if --enable-pedant option is specified)
 AC_ARG_ENABLE(pedant, [  --enable-pedant         pedantic compilation],
 	[if test "$enableval" = "yes"; then
-		CFLAGS="-Wall -Werror $CFLAGS"
+		CFLAGS="-Wall -Wextra -Werror $CFLAGS"
 	fi], [enableval=no])
 AC_MSG_RESULT($enableval);
 

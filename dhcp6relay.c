@@ -81,7 +81,7 @@ static char *rmsgctlbuf;
 static socklen_t rmsgctllen;
 static struct msghdr rmh;
 static char rdatabuf[BUFSIZ];
-static int relayifid;
+static unsigned int relayifid;
 
 static int mhops = DHCP6_RELAY_MULTICAST_HOPS;
 
@@ -658,7 +658,7 @@ relay6_recv(s, fromclient)
 	}
 
 	/* packet validation */
-	if (len < sizeof (*dh6)) {
+	if ((size_t)len < sizeof (*dh6)) {
 		dprint(LOG_INFO, FNAME, "short packet (%d bytes)", len);
 		return;
 	}
@@ -1048,7 +1048,7 @@ relay_to_client(dh6relay, len, from)
 		dprint(LOG_WARNING, FNAME,
 		    "sendmsg to %s failed: %s",
 		    addr2str((struct sockaddr *)&peer), strerror(errno));
-	} else if (cc != optinfo.relaymsg_len) {
+	} else if ((unsigned int)cc != optinfo.relaymsg_len) {
 		dprint(LOG_WARNING, FNAME,
 		    "failed to send a complete packet to %s",
 		    addr2str((struct sockaddr *)&peer));

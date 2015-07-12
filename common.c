@@ -727,7 +727,7 @@ getifaddr(addr, ifnam, prefix, plen, strong, ignoreflags)
 				continue;
 		} else {
 			struct in6_addr a, m;
-			int i;
+			unsigned int i;
 
 			memcpy(&a, &sin6.sin6_addr, sizeof(sin6.sin6_addr));
 			memset(&m, 0, sizeof(m));
@@ -827,7 +827,7 @@ transmit_sa(s, sa, buf, len)
 
 	error = sendto(s, buf, len, 0, sa, sysdep_sa_len(sa));
 
-	return (error != len) ? -1 : 0;
+	return (error != (int)len) ? -1 : 0;
 }
 
 long
@@ -1021,7 +1021,7 @@ get_duid(idfile, duid)
 
 	memset(duid, 0, sizeof(*duid));
 	duid->duid_len = len;
-	if ((duid->duid_id = (char *)malloc(len)) == NULL) {
+	if ((duid->duid_id = (unsigned char *)malloc(len)) == NULL) {
 		dprint(LOG_ERR, FNAME, "failed to allocate memory");
 		goto fail;
 	}
@@ -1487,17 +1487,18 @@ dhcp6_get_options(p, ep, optinfo)
 	struct dhcp6_optinfo *optinfo;
 {
 	struct dhcp6opt *np, opth;
-	int i, opt, optlen, reqopts, num;
+	int i, opt, reqopts, num;
+	unsigned int optlen;
 	u_int16_t num16;
-	char *bp, *cp, *val;
+	unsigned char *bp, *cp, *val;
 	u_int16_t val16;
 	u_int32_t val32;
 	struct dhcp6opt_ia optia;
 	struct dhcp6_ia ia;
 	struct dhcp6_list sublist;
-	int authinfolen;
+	unsigned int authinfolen;
 
-	bp = (char *)p;
+	bp = (unsigned char *)p;
 	for (; p + 1 <= ep; p = np) {
 		struct duid duid0;
 
@@ -1509,7 +1510,7 @@ dhcp6_get_options(p, ep, optinfo)
 		optlen = ntohs(opth.dh6opt_len);
 		opt = ntohs(opth.dh6opt_type);
 
-		cp = (char *)(p + 1);
+		cp = (unsigned char *)(p + 1);
 		np = (struct dhcp6opt *)(cp + optlen);
 
 		dprint(LOG_DEBUG, FNAME, "get DHCP option %s, len %d",
@@ -1926,7 +1927,7 @@ dnsdecode(sp, ep, buf, bufsiz)
 			if (!isprint(*cp)) /* we don't accept non-printables */
 				return (NULL);
 			l = snprintf(tmpbuf, sizeof(tmpbuf), "%c" , *cp);
-			if (l >= sizeof(tmpbuf) || l < 0)
+			if ((unsigned int)l >= sizeof(tmpbuf) || l < 0)
 				return (NULL);
 			if (strlcat(buf, tmpbuf, bufsiz) >= bufsiz)
 				return (NULL); /* result overrun */
@@ -2219,7 +2220,8 @@ copy_option(type, len, val, optp, ep, totallenp)
 {
 	struct dhcp6opt *opt = *optp, opth;
 
-	if ((void *)ep - (void *)optp < len + sizeof(struct dhcp6opt)) {
+	if ((size_t)((void *)ep - (void *)optp) <
+	    len + sizeof(struct dhcp6opt)) {
 		dprint(LOG_INFO, FNAME,
 		    "option buffer short for %s", dhcp6optstr(type));
 		return (-1);
@@ -3132,7 +3134,8 @@ char *
 duidstr(duid)
 	struct duid *duid;
 {
-	int i, n;
+	int n;
+	unsigned int i;
 	char *cp, *ep;
 	static char duidstr[sizeof("xx:") * 128 + sizeof("...")];
 

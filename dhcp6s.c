@@ -149,16 +149,18 @@ static struct keyinfo *ctlkey = NULL;
 static int ctldigestlen;
 static char *pid_file = DHCP6S_PIDFILE;
 
-static inline int get_val32 __P((char **, int *, u_int32_t *));
-static inline int get_val __P((char **, int *, void *, size_t));
+static inline int get_val32 __P((unsigned char **, unsigned int *,
+				 u_int32_t *));
+static inline int get_val __P((unsigned char **, unsigned int *,
+			       void *, size_t));
 
 static void usage __P((void));
 static void server6_init __P((void));
 static void server6_mainloop __P((void));
-static int server6_do_ctlcommand __P((char *, ssize_t));
+static int server6_do_ctlcommand __P((unsigned char *, ssize_t));
 static void server6_reload __P((void));
 static void server6_stop __P((void));
-static void server6_recv __P((int));
+static void server6_recv __P(());
 static void process_signals __P((void));
 static void server6_signal __P((int));
 static void free_relayinfo __P((struct relayinfo *));
@@ -181,10 +183,9 @@ static int react_release __P((struct dhcp6_if *, struct in6_pktinfo *,
 static int react_decline __P((struct dhcp6_if *, struct in6_pktinfo *,
     struct dhcp6 *, ssize_t, struct dhcp6_optinfo *, struct sockaddr *, int,
     struct relayinfolist *));
-static int react_confirm __P((struct dhcp6_if *, struct in6_pktinfo *,
-    struct dhcp6 *, ssize_t,
+static int react_confirm __P((struct dhcp6_if *, struct dhcp6 *, ssize_t,
     struct dhcp6_optinfo *, struct sockaddr *, int, struct relayinfolist *));
-static int react_informreq __P((struct dhcp6_if *, struct dhcp6 *, ssize_t,
+static int react_informreq __P((struct dhcp6_if *, struct dhcp6 *,
     struct dhcp6_optinfo *, struct sockaddr *, int, struct relayinfolist *));
 static int server6_send __P((int, struct dhcp6_if *, struct dhcp6 *,
     struct dhcp6_optinfo *, struct sockaddr *, int, struct dhcp6_optinfo *,
@@ -642,7 +643,7 @@ server6_mainloop()
 		}
 
 		if (FD_ISSET(insock, &r))
-			server6_recv(insock);
+			server6_recv();
 		if (ctlsock >= 0) {
 			if (FD_ISSET(ctlsock, &r)) {
 				(void)dhcp6_ctl_acceptcommand(ctlsock,
@@ -655,12 +656,12 @@ server6_mainloop()
 
 static inline int
 get_val32(bpp, lenp, valp)
-	char **bpp;
-	int *lenp;
+	unsigned char **bpp;
+	unsigned int *lenp;
 	u_int32_t *valp;
 {
-	char *bp = *bpp;
-	int len = *lenp;
+	unsigned char *bp = *bpp;
+	unsigned int len = *lenp;
 	u_int32_t i32;
 
 	if (len < sizeof(*valp))
@@ -677,13 +678,13 @@ get_val32(bpp, lenp, valp)
 
 static inline int
 get_val(bpp, lenp, valp, vallen)
-	char **bpp;
-	int *lenp;
+	unsigned char **bpp;
+	unsigned int *lenp;
 	void *valp;
 	size_t vallen;
 {
-	char *bp = *bpp;
-	int len = *lenp;
+	unsigned char *bp = *bpp;
+	unsigned int len = *lenp;
 
 	if (len < vallen)
 		return (-1);
@@ -698,7 +699,7 @@ get_val(bpp, lenp, valp, vallen)
 
 static int
 server6_do_ctlcommand(buf, len)
-	char *buf;
+	unsigned char *buf;
 	ssize_t len;
 {
 	struct dhcp6ctl *ctlhead;
@@ -707,8 +708,8 @@ server6_do_ctlcommand(buf, len)
 	u_int32_t p32, iaid, duidlen, ts, ts0;
 	struct duid duid;
 	struct dhcp6_binding *binding;
-	int commandlen;
-	char *bp;
+	unsigned int commandlen;
+	unsigned char *bp;
 	time_t now;
 
 	ctlhead = (struct dhcp6ctl *)buf;
@@ -716,7 +717,7 @@ server6_do_ctlcommand(buf, len)
 	command = ntohs(ctlhead->command);
 	commandlen = (int)(ntohs(ctlhead->len));
 	version = ntohs(ctlhead->version);
-	if (len != sizeof(struct dhcp6ctl) + commandlen) {
+	if ((size_t)len != sizeof(struct dhcp6ctl) + commandlen) {
 		dprint(LOG_ERR, FNAME,
 		    "assumption failure: command length mismatch");
 		return (DHCP6CTL_R_FAILURE);
@@ -855,8 +856,7 @@ server6_stop()
 }
 
 static void
-server6_recv(s)
-	int s;
+server6_recv()
 {
 	ssize_t len;
 	struct sockaddr_storage from;
@@ -910,7 +910,7 @@ server6_recv(s)
 	 * interface, when a DHCPv6 relay agent is running on that interface.
 	 * This check prevents such reception.
 	 */
-	if (pi->ipi6_ifindex != ifidx)
+	if (pi->ipi6_ifindex != (unsigned int)ifidx)
 		return;
 	if ((ifp = find_ifconfbyid((unsigned int)pi->ipi6_ifindex)) == NULL) {
 		dprint(LOG_INFO, FNAME, "unexpected interface (%d)",
@@ -920,7 +920,7 @@ server6_recv(s)
 
 	dh6 = (struct dhcp6 *)rdatabuf;
 
-	if (len < sizeof(*dh6)) {
+	if ((size_t)len < sizeof(*dh6)) {
 		dprint(LOG_INFO, FNAME, "short packet (%d bytes)", len);
 		return;
 	}
@@ -1002,11 +1002,11 @@ server6_recv(s)
 		    (struct sockaddr *)&from, fromlen, &relayinfohead);
 		break;
 	case DH6_CONFIRM:
-		(void)react_confirm(ifp, pi, dh6, len, &optinfo,
+		(void)react_confirm(ifp, dh6, len, &optinfo,
 		    (struct sockaddr *)&from, fromlen, &relayinfohead);
 		break;
 	case DH6_INFORM_REQ:
-		(void)react_informreq(ifp, dh6, len, &optinfo,
+		(void)react_informreq(ifp, dh6, &optinfo,
 		    (struct sockaddr *)&from, fromlen, &relayinfohead);
 		break;
 	default:
@@ -1054,7 +1054,7 @@ process_relayforw(dh6p, optendp, relayinfohead, from)
 
   again:
 	len = (void *)optend - (void *)dh6relay;
-	if (len < sizeof (*dh6relay)) {
+	if ((size_t)len < sizeof (*dh6relay)) {
 		dprint(LOG_INFO, FNAME, "short relay message from %s",
 		    addr2str(from));
 		return (-1);
@@ -1084,7 +1084,7 @@ process_relayforw(dh6p, optendp, relayinfohead, from)
 
 	/* relay message must contain a DHCPv6 message. */
 	len = optinfo.relaymsg_len;
-	if (len < sizeof (struct dhcp6)) {
+	if ((size_t)len < sizeof (struct dhcp6)) {
 		dprint(LOG_INFO, FNAME,
 		    "short packet (%d bytes) in relay message", len);
 		return (-1);
@@ -2146,9 +2146,8 @@ react_decline(ifp, pi, dh6, len, optinfo, from, fromlen, relayinfohead)
 }
 
 static int
-react_confirm(ifp, pi, dh6, len, optinfo, from, fromlen, relayinfohead)
+react_confirm(ifp, dh6, len, optinfo, from, fromlen, relayinfohead)
 	struct dhcp6_if *ifp;
-	struct in6_pktinfo *pi;
 	struct dhcp6 *dh6;
 	ssize_t len;
 	struct dhcp6_optinfo *optinfo;
@@ -2311,10 +2310,9 @@ send_reply:
 }
 
 static int
-react_informreq(ifp, dh6, len, optinfo, from, fromlen, relayinfohead)
+react_informreq(ifp, dh6, optinfo, from, fromlen, relayinfohead)
 	struct dhcp6_if *ifp;
 	struct dhcp6 *dh6;
-	ssize_t len;
 	struct dhcp6_optinfo *optinfo;
 	struct sockaddr *from;
 	int fromlen;
@@ -2719,6 +2717,11 @@ server6_send(type, ifp, origmsg, optinfo, from, fromlen,
 	struct dhcp6 *dh6;
 	struct relayinfo *relayinfo;
 
+	/* Unused params */
+	ifp = ifp;
+	optinfo = optinfo;
+	fromlen = fromlen;
+
 	if (sizeof(struct dhcp6) > sizeof(replybuf)) {
 		dprint(LOG_ERR, FNAME, "buffer size assumption failed");
 		return (-1);
@@ -2747,8 +2750,8 @@ server6_send(type, ifp, origmsg, optinfo, from, fromlen,
 			    "but not key provided");
 			break;
 		}
-		if (dhcp6_calc_mac((char *)dh6, len, roptinfo->authproto,
-		    roptinfo->authalgorithm,
+		if (dhcp6_calc_mac((unsigned char *)dh6, len,
+		    roptinfo->authproto, roptinfo->authalgorithm,
 		    roptinfo->delayedauth_offset + sizeof(*dh6),
 		    client_conf->delayedkey)) {
 			dprint(LOG_WARNING, FNAME, "failed to calculate MAC");
@@ -3076,7 +3079,9 @@ calc_ia_timo(ia, ialist, client_conf)
 {
 	struct dhcp6_listval *iav;
 	u_int32_t base = DHCP6_DURATION_INFINITE;
-	int iatype;
+	unsigned int iatype;
+
+	client_conf = client_conf; /* unused */
 
 	iatype = TAILQ_FIRST(ialist)->type;
 	for (iav = TAILQ_FIRST(ialist); iav; iav = TAILQ_NEXT(iav, link)) {
@@ -3606,7 +3611,7 @@ process_auth(dh6, len, client_conf, optinfo, roptinfo)
 			}
 
 			/* validate MAC */
-			if (dhcp6_verify_mac((char *)dh6, len,
+			if (dhcp6_verify_mac((unsigned char *)dh6, len,
 			    optinfo->authproto, optinfo->authalgorithm,
 			    optinfo->delayedauth_offset + sizeof(*dh6), key)
 			    == 0) {

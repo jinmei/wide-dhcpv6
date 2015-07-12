@@ -88,6 +88,8 @@ client6_script(scriptpath, state, optinfo)
 	struct dhcp6_listval *v;
 	pid_t pid, wpid;
 
+	state = state;		/* unused for now */
+
 	/* if a script is not specified, do nothing */
 	if (scriptpath == NULL || strlen(scriptpath) == 0)
 		return -1;

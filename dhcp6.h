@@ -111,11 +111,11 @@ typedef uint64_t u_int64_t;
 /* DUID: DHCP unique Identifier */
 struct duid {
 	size_t duid_len;	/* length */
-	char *duid_id;		/* variable length ID value (must be opaque) */
+	unsigned char *duid_id;	/* variable length ID value (must be opaque) */
 };
 
 struct dhcp6_vbuf {		/* generic variable length buffer */
-	int dv_len;
+	unsigned int dv_len;
 	caddr_t dv_buf;
 };
 
@@ -217,7 +217,7 @@ struct dhcp6_optinfo {
 		struct {
 			u_int32_t keyid;
 			struct dhcp6_vbuf realm;
-			int offset; /* offset to the HMAC field */
+			unsigned int offset; /* offset to the HMAC field */
 		} aiu_delayed;
 		struct {
 			int type;

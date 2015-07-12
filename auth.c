@@ -121,7 +121,7 @@ dhcp6_validate_key(key)
 
 int
 dhcp6_calc_mac(buf, len, proto, alg, off, key)
-	char *buf;
+	unsigned char *buf;
 	size_t len, off;
 	int proto, alg;
 	struct keyinfo *key;
@@ -130,6 +130,7 @@ dhcp6_calc_mac(buf, len, proto, alg, off, key)
 	unsigned char digest[MD5_DIGESTLENGTH];
 
 	/* right now, we don't care about the protocol */
+	proto = proto;		/* silence compiler */
 
 	if (alg != DHCP6_AUTHALG_HMACMD5)
 		return (-1);
@@ -153,7 +154,7 @@ dhcp6_calc_mac(buf, len, proto, alg, off, key)
 
 int
 dhcp6_verify_mac(buf, len, proto, alg, off, key)
-	char *buf;
+	unsigned char *buf;
 	ssize_t len;
 	int proto, alg;
 	size_t off;
@@ -164,11 +165,12 @@ dhcp6_verify_mac(buf, len, proto, alg, off, key)
 	int result;
 
 	/* right now, we don't care about the protocol */
+	proto = proto;		/* silence compiler */
 
 	if (alg != DHCP6_AUTHALG_HMACMD5)
 		return (-1);
 
-	if (off + MD5_DIGESTLENGTH > len)
+	if ((ssize_t)off + MD5_DIGESTLENGTH > len)
 		return (-1);
 
 	/*

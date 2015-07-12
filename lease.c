@@ -208,7 +208,7 @@ hash_table_init(table, size, hash, match)
 	pfn_hash_t hash;
 	pfh_hash_match_t match;
 {
-	int i;
+	unsigned int i;
 
 	if (!table || !hash || !match) {
 		return (-1);
@@ -232,7 +232,7 @@ static void
 hash_table_cleanup(table)
 	struct hash_table *table; 
 {
-	int i;
+	unsigned int i;
 
 	if (!table) {
 		return;

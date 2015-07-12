@@ -1185,8 +1185,9 @@ configure_duid(str, duid)
 	char *str;		/* this is a valid DUID string */
 	struct duid *duid;
 {
-	char *cp, *bp;
-	char *idbuf = NULL;
+	const char *cp;
+	unsigned char *bp;
+	unsigned char *idbuf = NULL;
 	int duidlen, slen;
 	unsigned int x;
 
@@ -1860,7 +1861,7 @@ add_prefix(head, name, type, prefix0)
 struct ia_conf *
 find_iaconf(head, type, iaid)
 	struct ia_conflist *head;
-	int type;
+	iatype_t type;
 	u_int32_t iaid;
 {
 	struct ia_conf *iac;
