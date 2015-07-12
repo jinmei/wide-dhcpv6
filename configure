@@ -4527,7 +4527,7 @@ $as_echo_n "checking if --enable-pedant option is specified... " >&6; }
 # Check whether --enable-pedant was given.
 if test "${enable_pedant+set}" = set; then :
   enableval=$enable_pedant; if test "$enableval" = "yes"; then
-		CFLAGS="-Wall -Werror $CFLAGS"
+		CFLAGS="-Wall -Wextra -Werror $CFLAGS"
 	fi
 else
   enableval=no
@@ -4730,11 +4730,36 @@ fi
 $as_echo "$group" >&6; }
 
 
-case "$host" in
-*-apple-darwin*)
-	CFLAGS="$CFLAGS -D__APPLE_USE_RFC_3542"
-	;;
-esac
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking compie with daemon()" >&5
+$as_echo_n "checking compie with daemon()... " >&6; }
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+#include <stdlib.h>
+int
+main ()
+{
+
+#ifdef HAVE_DAEMON
+daemon(0, 0);
+#endif
+
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+$as_echo "yes" >&6; }
+   ac_cv_broken_daemon=no
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+
+$as_echo "#define HAVE_BROKEN_DAEMON 1" >>confdefs.h
+
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+
 CFLAGS="$CFLAGS -D__APPLE_USE_RFC_3542"
 
 for ac_header in stdarg.h

@@ -226,8 +226,16 @@ main(argc, argv)
 	}
 
 	if (foreground == 0 && infreq_mode == 0) {
+#ifdef HAVE_BROKEN_DAEMON
+		pid_t pid = fork();
+		if (pid < 0)
+			err(1, "fork");
+		if (pid != 0)
+			exit(0);
+#else
 		if (daemon(0, 0) < 0)
 			err(1, "daemon");
+#endif
 	}
 
 	/* dump current PID */

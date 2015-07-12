@@ -207,8 +207,16 @@ main(argc, argv)
 	}
 
 	if (foreground == 0) {
+#ifdef HAVE_BROKEN_DAEMON
+		pid_t pid = fork();
+		if (pid < 0)
+			err(1, "fork");
+		if (pid != 0)
+			exit(0);
+#else
 		if (daemon(0, 0) < 0)
 			err(1, "daemon");
+#endif
 		openlog(progname, LOG_NDELAY|LOG_PID, LOG_DAEMON);
 	}
 	setloglevel(debug);

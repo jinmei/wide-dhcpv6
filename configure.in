@@ -234,6 +234,19 @@ AC_ARG_WITH(group,
 AC_MSG_RESULT($group)
 AC_SUBST(group)
 
+dnl Some OS (specifically, MacOS X) has "deprecated" daemon().  So it will make
+dnl fail with --enable-pedant.  The following hack will work around it.
+AC_MSG_CHECKING([compie with daemon()])
+AC_TRY_COMPILE([#include <stdlib.h>],
+[
+#ifdef HAVE_DAEMON
+daemon(0, 0);
+#endif
+],[AC_MSG_RESULT(yes)
+   ac_cv_broken_daemon=no],
+  [AC_MSG_RESULT(no)
+   AC_DEFINE([HAVE_BROKEN_DAEMON], 1, [Define to 1 if you have a broken daemon library function])])
+
 dnl MacOS X requires a special definition to enable the IPv6 advanced API
 dnl TODO: this should be deined only for MacOS X
 CFLAGS="$CFLAGS -D__APPLE_USE_RFC_3542"
