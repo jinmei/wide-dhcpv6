@@ -1769,7 +1769,7 @@ add_options(opcode, ifc, cfl0)
 				opttype = DH6OPT_REFRESHTIME;
 				break;
 			}
-			switch(opcode) {
+			switch (opcode) {
 			case DHCPOPTCODE_REQUEST:
 				if (dhcp6_find_listval(&ifc->reqopt_list,
 					DHCP6_LISTVAL_NUM, &opttype, 0)

@@ -245,6 +245,15 @@ ecl		\}
 	return (AUTHNAME);
 }
 
+	/* public-key option */
+<S_CNF>public-key { DECHO; BEGIN S_AUTH; return (PUBLIC_KEY); }
+<S_AUTH>{string} {
+	DECHO;
+	yylval.str = strdup(yytext);
+	BEGIN S_CNF;
+	return (AUTHNAME);
+}
+
 	/* authentication parameters */
 <S_CNF>protocol { DECHO; return (PROTOCOL); };
 <S_CNF>algorithm { DECHO; return (ALGORITHM); };

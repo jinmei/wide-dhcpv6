@@ -112,6 +112,7 @@ static void cleanup_cflist __P((struct cf_list *));
 %token NIS_SERVERS NIS_NAME
 %token NISP_SERVERS NISP_NAME
 %token BCMCS_SERVERS BCMCS_NAME
+%token PUBLIC_KEY
 %token INFO_ONLY
 %token SCRIPT DELAYEDKEY
 %token AUTHENTICATION PROTOCOL ALGORITHM DELAYED RECONFIG SEDHCPV6 HMACMD5
@@ -742,6 +743,14 @@ dhcpoption:
 
 			MAKE_CFLIST(l, DHCPOPT_BCMCSNAME, NULL, NULL);
 			/* currently no value */
+			$$ = l;
+		}
+	|	PUBLIC_KEY AUTHNAME
+		{
+			struct cf_list *l;
+
+			MAKE_CFLIST(l, DHCPOPT_PUBLIC_KEY, NULL, NULL);
+			l->ptr = $2;
 			$$ = l;
 		}
 	;

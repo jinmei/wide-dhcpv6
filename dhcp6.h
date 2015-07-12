@@ -282,6 +282,11 @@ struct dhcp6_relay {
 #  define DH6OPT_STCODE_NOTONLINK 4
 #  define DH6OPT_STCODE_USEMULTICAST 5
 #  define DH6OPT_STCODE_NOPREFIXAVAIL 6
+/* secure DHCPv6 (draft-ietf-dhc-sedhcpv6-08) to be compatible with KEA */
+#  define DH6OPT_STCODE_ALGNOTSUPPORTED 705
+#  define DH6OPT_STCODE_AUTHFAIL 706
+#  define DH6OPT_STCODE_TSFAIL 707
+#  define DH6OPT_STCODE_SIGFAIL 708
 
 #define DH6OPT_RAPID_COMMIT 14
 #define DH6OPT_USER_CLASS 15
@@ -310,7 +315,13 @@ struct dhcp6_relay {
 #define DH6OPT_SUBSCRIBER_ID 38
 #define DH6OPT_CLIENT_FQDN 39
 
-/* The followings are KAME specific. */
+/* secure DHCPv6 (draft-ietf-dhc-sedhcpv6-08) to be compatible with KEA */
+#define DH6OPT_PUBLIC_KEY 701
+#define DH6OPT_CERTIFICATE 702
+#define DH6OPT_SIGNATURE 703
+#define DH6OPT_TIMESTAMP 704
+
+/* The following are KAME specific. */
 
 struct dhcp6opt {
 	u_int16_t dh6opt_type;
@@ -375,6 +386,13 @@ struct dhcp6opt_auth {
 	u_int8_t dh6_auth_rdm;
 	u_int8_t dh6_auth_rdinfo[8];
 	/* authentication information follows */
+} __attribute__ ((__packed__));
+
+/* Public-key */
+struct dhcp6opt_public_key {
+	u_int16_t dh6_pubkey_type;
+	u_int16_t dh6_pubkey_len;
+	/* public-key data follows */
 } __attribute__ ((__packed__));
 
 enum { DHCP6_AUTHPROTO_UNDEF = -1, /* placeholder */
