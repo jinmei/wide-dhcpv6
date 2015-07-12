@@ -377,9 +377,21 @@ struct dhcp6opt_auth {
 	/* authentication information follows */
 } __attribute__ ((__packed__));
 
-enum { DHCP6_AUTHPROTO_UNDEF = -1, DHCP6_AUTHPROTO_DELAYED = 2,
-       DHCP6_AUTHPROTO_RECONFIG = 3 };
-enum { DHCP6_AUTHALG_UNDEF = -1, DHCP6_AUTHALG_HMACMD5 = 1 };
+enum { DHCP6_AUTHPROTO_UNDEF = -1, /* placeholder */
+       /* 0-255 are protocol defined numbers for Authentication option */
+       DHCP6_AUTHPROTO_DELAYED = 2, DHCP6_AUTHPROTO_RECONFIG = 3,
+       /* >255 are for internal use (256 is reserved for now) */
+       DHCP6_AUTHPROTO_SEDHCPV6 = 257 };
+enum { DHCP6_AUTHALG_UNDEF = -1,
+       /* 0-255: Authentication algorithms as defined RFC 3315 */
+       DHCP6_AUTHALG_HMACMD5 = 1 };
+enum { DHCP6_SIGALG_UNDEF = -1,
+       /* 0-255: Authentication algorithm IDs as defined in dhc-sedhcpv6 */
+       DHCP6_SIGALG_RSASSA_PKCS1_V1_5 = 1 };
+enum { DHCP6_HASHALG_UNDEF = -1,
+       /* 0-255: Authentication algorithm IDs as defined in dhc-sedhcpv6 */
+       DHCP6_HASHALG_SHA256 = 1, DHCP6_HASHALG_SHA512 = 2 };
+/* Replay detection methods as defined in RFC 3315 */
 enum { DHCP6_AUTHRDM_UNDEF = -1, DHCP6_AUTHRDM_MONOCOUNTER = 0 };
 
 #endif /*__DHCP6_H_DEFINED*/

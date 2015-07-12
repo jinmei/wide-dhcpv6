@@ -855,6 +855,15 @@ find_keybyname(head, kname)
 	return (NULL);
 }
 
+/* Copy a string assuming it's in the form of "..." */
+static const char *
+copy_quotedstr(const char *str) {
+	char *ret = strdup(str + 1);
+	if (ret != NULL)
+		ret[strlen(ret) - 1] = '\0';
+	return (ret);
+}
+
 int
 configure_authinfo(authlist)
 	struct cf_namelist *authlist;
@@ -876,6 +885,12 @@ configure_authinfo(authlist)
 		ainfo->protocol = DHCP6_AUTHPROTO_UNDEF;
 		ainfo->algorithm = DHCP6_AUTHALG_UNDEF;
 		ainfo->rdm = DHCP6_AUTHRDM_UNDEF;
+		ainfo->sig_algorithm = DHCP6_SIGALG_UNDEF;
+		ainfo->hash_algorithm = DHCP6_HASHALG_UNDEF;
+		ainfo->pubkey_file = NULL;
+		ainfo->pubkey = NULL;
+		ainfo->privkey_file = NULL;
+		ainfo->privkey = NULL;
 
 		if ((ainfo->name = strdup(auth->name)) == NULL) {
 			dprint(LOG_ERR, FNAME,
@@ -927,6 +942,26 @@ configure_authinfo(authlist)
 				    "are not supported",
 				    configfilename, cfl->line);
 				break;
+			case AUTHPARAM_PUBKEYFILE:
+				ainfo->pubkey_file =
+					copy_quotedstr((char *)cfl->ptr);
+				if (ainfo->pubkey_file == NULL) {
+					dprint(LOG_ERR, FNAME, "failed to copy "
+					       "auth public key file: %s",
+					       (char *)cfl->ptr);
+					goto bad;
+				}
+				break;
+			case AUTHPARAM_PRIVKEYFILE:
+				ainfo->privkey_file =
+					copy_quotedstr((char *)cfl->ptr);
+				if (ainfo->privkey_file == NULL) {
+					dprint(LOG_ERR, FNAME, "failed to copy "
+					       "auth private key file: %s",
+					       (char *)cfl->ptr);
+					goto bad;
+				}
+				break;
 			default:
 				dprint(LOG_ERR, FNAME,
 				    "%s:%d invalid auth info parameter for %s",
@@ -956,11 +991,32 @@ configure_authinfo(authlist)
 				goto bad;
 			}
 			break;
+		case DHCP6_AUTHPROTO_SEDHCPV6:
+			if (ainfo->pubkey_file == NULL) {
+				dprint(LOG_ERR, FNAME, "no public key file "
+				       "for Secure DHCPv6");
+				goto bad;
+			}
+			if (ainfo->privkey_file == NULL) {
+				dprint(LOG_ERR, FNAME, "no private key file "
+				       "for Secure DHCPv6");
+				goto bad;
+			}
+			break;
 		}
-		if (ainfo->algorithm == DHCP6_AUTHALG_UNDEF)
-			ainfo->algorithm = DHCP6_AUTHALG_HMACMD5;
-		if (ainfo->rdm == DHCP6_AUTHRDM_UNDEF)
-			ainfo->rdm = DHCP6_AUTHRDM_MONOCOUNTER;
+		if (ainfo->protocol == DHCP6_AUTHPROTO_SEDHCPV6) {
+			if (ainfo->sig_algorithm == DHCP6_AUTHALG_UNDEF) {
+				ainfo->sig_algorithm =
+					DHCP6_SIGALG_RSASSA_PKCS1_V1_5;
+			}
+			if (ainfo->hash_algorithm == DHCP6_HASHALG_UNDEF)
+				ainfo->hash_algorithm = DHCP6_HASHALG_SHA256;
+		} else {
+			if (ainfo->algorithm == DHCP6_AUTHALG_UNDEF)
+				ainfo->algorithm = DHCP6_AUTHALG_HMACMD5;
+			if (ainfo->rdm == DHCP6_AUTHRDM_UNDEF)
+				ainfo->rdm = DHCP6_AUTHRDM_MONOCOUNTER;
+		}
 	}
 
 	return (0);

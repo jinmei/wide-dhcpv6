@@ -248,10 +248,13 @@ ecl		\}
 <S_CNF>algorithm { DECHO; return (ALGORITHM); };
 <S_CNF>rdm { DECHO; return (RDM); };
 <S_CNF>key { DECHO; return (KEY); };
+<S_CNF>public-key-file { DECHO; return (PUBLIC_KEY_FILE); };
+<S_CNF>private-key-file { DECHO; return (PRIVATE_KEY_FILE); };
 
 	/* authentication protocols */
 <S_CNF>delayed { DECHO; return (DELAYED); };
 <S_CNF>reconfig { DECHO; return (RECONFIG); };
+<S_CNF>sedhcpv6 { DECHO; return (SEDHCPV6); };
 
 	/* authentication algorithms */
 <S_CNF>hmac-md5 { DECHO; return (HMACMD5); };
