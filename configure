@@ -4540,11 +4540,11 @@ $as_echo "$enableval" >&6; };
 $as_echo_n "checking ANSI predeclared __func__... " >&6; }
 cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
-
+#include <stdio.h>
 int
 main ()
 {
-void func(void) {printf("%s\n", __func__);}
+printf("%s\n", __func__);
   ;
   return 0;
 }
@@ -4560,15 +4560,15 @@ $as_echo "no" >&6; }
 fi
 rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
 if test $pred_func_id = no; then
-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking gcc predelcared __FUNCTION__" >&5
-$as_echo_n "checking gcc predelcared __FUNCTION__... " >&6; }
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking gcc predeclared __FUNCTION__" >&5
+$as_echo_n "checking gcc predeclared __FUNCTION__... " >&6; }
 	cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
-
+#include <stdio.h>
 int
 main ()
 {
-void func(void) {printf("%s\n", __FUNCTION__);}
+printf("%s\n", __FUNCTION__);
   ;
   return 0;
 }
