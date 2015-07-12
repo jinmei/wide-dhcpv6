@@ -65,6 +65,7 @@
 #include <syslog.h>
 #include <string.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <errno.h>
 
 #ifdef HAVE_OPENSSL

@@ -142,6 +142,7 @@ extern void dhcp6_remove_event __P((struct dhcp6_event *));
 extern void dhcp6_remove_evdata __P((struct dhcp6_event *));
 extern struct authparam *new_authparam __P((int, int, int));
 extern struct authparam *copy_authparam __P((struct authparam *));
+extern void free_authparam __P((struct authparam **));
 extern int dhcp6_auth_replaycheck __P((int, u_int64_t, u_int64_t));
 extern int getifaddr __P((struct in6_addr *, char *, struct in6_addr *,
 			  int, int, int));

@@ -53,6 +53,18 @@ struct pool_conf {
 	struct in6_addr max;
 };
 
+/* run-time authentication parameters */
+struct authparam {
+	int authproto;
+	int authalgorithm;
+	int authrdm;
+	struct keyinfo *key;
+	int flags;
+#define AUTHPARAM_FLAGS_NOPREVRD	0x1
+
+	u_int64_t prevrd;	/* previous RD value provided by the peer */
+};
+
 /* per-interface information */
 struct dhcp6_if {
 	struct dhcp6_if *next;
@@ -83,23 +95,8 @@ struct dhcp6_if {
 	struct dhcp6_list reqopt_list;
 	struct ia_conflist iaconf_list;
 
-	/* authentication information */
-	int authproto;		/* protocol */
-	/* the followings are valid only if authproto is not UNDEF */
-	int authalgorithm;	/* algorithm */
-	int authrdm;		/* replay attack detection method */
-};
-
-/* run-time authentication parameters */
-struct authparam {
-	int authproto;
-	int authalgorithm;
-	int authrdm;
-	struct keyinfo *key;
-	int flags;
-#define AUTHPARAM_FLAGS_NOPREVRD	0x1
-
-	u_int64_t prevrd;	/* previous RD value provided by the peer */
+	/* initial authentication information (no run-time state) */
+	struct authparam *authparam;
 };
 
 struct dhcp6_event {

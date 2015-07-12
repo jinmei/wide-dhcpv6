@@ -535,7 +535,7 @@ remove_ia(ia)
 		(*ia->ctl->cleanup)(ia->ctl);
 
 	if (ia->authparam != NULL)
-		free(ia->authparam);
+		free_authparam(&ia->authparam);
 
 	free(ia);
 

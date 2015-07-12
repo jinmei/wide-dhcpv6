@@ -566,12 +566,12 @@ dhcp6_remove_event(ev)
 		    duidstr(&sp->optinfo.serverID));
 		dhcp6_clear_options(&sp->optinfo);
 		if (sp->authparam != NULL)
-			free(sp->authparam);
+			free_authparam(&sp->authparam);
 		free(sp);
 	}
 
 	if (ev->authparam != NULL)
-		free(ev->authparam);
+		free_authparam(&ev->authparam);
 
 	free(ev);
 }
@@ -591,27 +591,6 @@ dhcp6_remove_evdata(ev)
 }
 
 struct authparam *
-new_authparam(proto, alg, rdm)
-	int proto, alg, rdm;
-{
-	struct authparam *authparam;
-
-	if ((authparam = malloc(sizeof(*authparam))) == NULL)
-		return (NULL);
-
-	memset(authparam, 0, sizeof(*authparam));
-
-	authparam->authproto = proto;
-	authparam->authalgorithm = alg;
-	authparam->authrdm = rdm;
-	authparam->key = NULL;
-	authparam->flags |= AUTHPARAM_FLAGS_NOPREVRD;
-	authparam->prevrd = 0;
-
-	return (authparam);
-}
-
-struct authparam *
 copy_authparam(authparam)
 	struct authparam *authparam;
 {
@@ -623,6 +602,14 @@ copy_authparam(authparam)
 	memcpy(dst, authparam, sizeof(*dst));
 
 	return (dst);
+}
+
+void
+free_authparam(authparamp)
+	struct authparam **authparamp;
+{
+	free(*authparamp);
+	*authparamp = NULL;
 }
 
 /*

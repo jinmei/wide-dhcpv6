@@ -112,6 +112,7 @@ struct dhcp6_ifconf {
 
 	struct authinfo *authinfo; /* authentication information
 				    * (no need to clear) */
+	struct authparam *authparam;
 	struct dhcp6_poolspec pool;
 };
 
@@ -1390,9 +1391,8 @@ configure_commit()
 		if (ifp->scriptpath != NULL)
 			free(ifp->scriptpath);
 		ifp->scriptpath = NULL;
-		ifp->authproto = DHCP6_AUTHPROTO_UNDEF;
-		ifp->authalgorithm = DHCP6_AUTHALG_UNDEF; 
-		ifp->authrdm = DHCP6_AUTHRDM_UNDEF;
+		if (ifp->authparam != NULL)
+			free_authparam(&ifp->authparam);
 
 		for (ifc = dhcp6_ifconflist; ifc; ifc = ifc->next) {
 			if (strcmp(ifp->ifname, ifc->ifname) == 0)
@@ -1413,12 +1413,7 @@ configure_commit()
 		ifp->server_pref = ifc->server_pref;
 		ifp->scriptpath = ifc->scriptpath;
 		ifc->scriptpath = NULL;
-
-		if (ifc->authinfo != NULL) {
-			ifp->authproto = ifc->authinfo->protocol;
-			ifp->authalgorithm = ifc->authinfo->algorithm;
-			ifp->authrdm = ifc->authinfo->rdm;
-		}
+		ifp->authparam = ifc->authparam;
 		ifp->pool = ifc->pool;
 		ifc->pool.name = NULL;
 	}
@@ -1616,6 +1611,25 @@ clear_authinfo(alist)
 	}
 }
 
+static struct authparam *
+create_authparam(struct authinfo *ainfo) {
+	struct authparam *authparam;
+
+	if ((authparam = malloc(sizeof(*authparam))) == NULL)
+		return (NULL);
+
+	memset(authparam, 0, sizeof(*authparam));
+
+	authparam->authproto = ainfo->protocol;
+	authparam->authalgorithm = ainfo->algorithm;
+	authparam->authrdm = ainfo->rdm;
+	authparam->key = NULL;
+	authparam->flags |= AUTHPARAM_FLAGS_NOPREVRD;
+	authparam->prevrd = 0;
+
+	return (authparam);
+}
+
 static int
 add_options(opcode, ifc, cfl0)
 	int opcode;
@@ -1661,6 +1675,7 @@ add_options(opcode, ifc, cfl0)
 				    (char *)cfl->ptr);
 				return (-1);
 			}
+			/* to be deprecated */
 			if (ifc->authinfo != NULL) {
 				dprint(LOG_ERR, FNAME,
 				    "%s:%d authinfo is doubly specified on %s",
@@ -1668,6 +1683,19 @@ add_options(opcode, ifc, cfl0)
 				return (-1);
 			}
 			ifc->authinfo = ainfo; 
+			/* end deprecated */
+			if (ifc->authparam != NULL) {
+				dprint(LOG_ERR, FNAME,
+				    "%s:%d authinfo is doubly specified on %s",
+				    configfilename, cfl->line, ifc->ifname);
+				return (-1);
+			}
+			ifc->authparam = create_authparam(ainfo);
+			if (ifc->authparam == NULL) {
+				dprint(LOG_ERR, FNAME,
+			            "ofailed to create authentication params");
+				return (-1);
+			}
 			break;
 		case DHCPOPT_IA_PD:
 			switch (opcode) {

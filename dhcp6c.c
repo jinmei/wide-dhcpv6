@@ -410,8 +410,7 @@ client6_start(ifp)
 	}
 	TAILQ_INSERT_TAIL(&ifp->event_list, ev, link);
 
-	if ((ev->authparam = new_authparam(ifp->authproto,
-	    ifp->authalgorithm, ifp->authrdm)) == NULL) {
+	if ((ev->authparam = copy_authparam(ifp->authparam)) == NULL) {
 		dprint(LOG_WARNING, FNAME, "failed to allocate "
 		    "authentication parameters");
 		dhcp6_remove_event(ev);
@@ -895,7 +894,7 @@ client6_timo(arg)
 			dhcp6_set_timeoparam(ev);
 
 			if (ev->authparam != NULL)
-				free(ev->authparam);
+				free_authparam(&ev->authparam);
 			ev->authparam = ev->current_server->authparam;
 			ev->current_server->authparam = NULL;
 
@@ -1494,7 +1493,7 @@ client6_recvadvert(ifp, dh6, len, optinfo)
 	struct dhcp6_serverinfo *newserver, **sp;
 	struct dhcp6_event *ev;
 	struct dhcp6_eventdata *evd;
-	struct authparam *authparam = NULL, authparam0;
+	struct authparam authparam;
 
 	/* find the corresponding event based on the received xid */
 	ev = find_event_withid(ifp, ntohl(dh6->dh6_xid) & DH6_XIDMASK);
@@ -1522,8 +1521,8 @@ client6_recvadvert(ifp, dh6, len, optinfo)
 	}
 
 	/* validate authentication */
-	authparam0 = *ev->authparam;
-	if (process_auth(&authparam0, dh6, len, optinfo)) {
+	authparam = *ev->authparam;
+	if (process_auth(&authparam, dh6, len, optinfo)) {
 		dprint(LOG_INFO, FNAME, "failed to process authentication");
 		return (-1);
 	}
@@ -1592,27 +1591,20 @@ client6_recvadvert(ifp, dh6, len, optinfo)
 	memset(newserver, 0, sizeof(*newserver));
 
 	/* remember authentication parameters */
-	newserver->authparam = ev->authparam;
-	newserver->authparam->flags = authparam0.flags;
-	newserver->authparam->prevrd = authparam0.prevrd;
-	newserver->authparam->key = authparam0.key;
-
-	/* allocate new authentication parameter for the soliciting event */
-	if ((authparam = new_authparam(ev->authparam->authproto,
-	    ev->authparam->authalgorithm, ev->authparam->authrdm)) == NULL) {
+	newserver->authparam = copy_authparam(&authparam);
+	if (newserver->authparam == NULL) {
 		dprint(LOG_WARNING, FNAME, "memory allocation failed "
 		    "for authentication parameters");
 		free(newserver);
 		return (-1);
 	}
-	ev->authparam = authparam;
 
 	/* copy options */
 	dhcp6_init_options(&newserver->optinfo);
 	if (dhcp6_copy_options(&newserver->optinfo, optinfo)) {
 		dprint(LOG_ERR, FNAME, "failed to copy options");
 		if (newserver->authparam != NULL)
-			free(newserver->authparam);
+			free_authparam(&newserver->authparam);
 		free(newserver);
 		return (-1);
 	}
@@ -1650,7 +1642,7 @@ client6_recvadvert(ifp, dh6, len, optinfo)
 		ev->timeouts = 0;
 		ev->state = DHCP6S_REQUEST;
 
-		free(ev->authparam);
+		free_authparam(&ev->authparam);
 		ev->authparam = newserver->authparam;
 		newserver->authparam = NULL;
 
