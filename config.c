@@ -1609,7 +1609,7 @@ clear_authinfo(alist)
 		auth_next = auth->next;
 		free(auth->name);
 		free(auth->pubkey_file);
-		dhcp6_free_pubkey(auth->sig_algorithm, &auth->pubkey);
+		dhcp6_free_pubkey(&auth->pubkey);
 		free(auth->privkey_file);
 		dhcp6_free_privkey(auth->sig_algorithm, &auth->pubkey);
 		free(auth);

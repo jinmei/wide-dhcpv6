@@ -62,5 +62,5 @@ extern int dhcp6_verify_mac __P((unsigned char *, ssize_t, int, int, size_t,
 int dhcp6_auth_init __P((void));
 int dhcp6_read_pubkey __P((int, const char *, void **));
 int dhcp6_read_privkey __P((int, const char *, void **));
-void dhcp6_free_pubkey __P((int, void **));
+void dhcp6_free_pubkey __P((void **));
 void dhcp6_free_privkey __P((int, void **));

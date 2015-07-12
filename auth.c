@@ -96,6 +96,12 @@ typedef struct {
 	unsigned char key[HMACMD5_KEYLENGTH];
 } hmacmd5_t;
 
+/* opaque placeholder of binary form of public key */
+typedef struct pubkey_data {
+	void *data;
+	size_t len;
+} pubkey_data_t;
+
 static void hmacmd5_init __P((hmacmd5_t *, const unsigned char *,
     unsigned int));
 static void hmacmd5_invalidate __P((hmacmd5_t *));
@@ -159,7 +165,8 @@ read_key(int sig_alg, const char *key_file, void **keyp, int is_publickey)
 		*keyp = rsa;
 	}
 #else
-	dprint(LOG_ERR, FNAME, "missing crypto library");
+	dprint(LOG_ERR, FNAME, "missing crypto library to read %s key",
+	       is_publickey ? "public" : "private");
 	goto cleanup;
 #endif
 	ret = 0;
@@ -173,41 +180,79 @@ read_key(int sig_alg, const char *key_file, void **keyp, int is_publickey)
 int
 dhcp6_read_pubkey(int sig_alg, const char *key_file, void **keyp)
 {
-	return read_key(sig_alg, key_file, keyp, 1);
+	int ret;
+	void *key = NULL;
+
+	ret = read_key(sig_alg, key_file, &key, 1);
+#ifdef HAVE_OPENSSL
+	if (ret == 0) {
+		RSA *rsa = (RSA *)key; /* Right now, this should be RSA key */
+		char *cp = NULL;
+		pubkey_data_t *pubkey = NULL;
+		long pubkey_len;
+		BIO *bio = NULL;
+
+		ret = -1; 	/* reset return value */
+
+		/* Extract and copy binary in-memory data of the public key */
+		bio = BIO_new(BIO_s_mem());
+		if (bio == NULL) {
+			dprint(LOG_ERR, FNAME, "failed to create BIO: %s",
+			       ERR_reason_error_string(ERR_get_error()));
+			goto cleanup;
+		}
+		pubkey_len = BIO_get_mem_data(bio, &cp);
+		pubkey = malloc(sizeof(*pubkey));
+		if (pubkey != NULL) {
+			pubkey->data = malloc(pubkey_len);
+			pubkey->len = (size_t)pubkey_len;
+			if (pubkey->data != NULL) {
+				key = pubkey;
+				ret = 0;
+			}
+		}
+	  cleanup:
+		if (ret != 0)
+			free(pubkey);
+		if (bio != NULL)
+			BIO_free_all(bio);
+		RSA_free(rsa);
+	}
+#endif
+	if (ret == 0)
+		*keyp = key;
+
+	return (ret);
 }
 
 int
 dhcp6_read_privkey(int sig_alg, const char *key_file, void **keyp)
 {
-	return read_key(sig_alg, key_file, keyp, 0);
+	return (read_key(sig_alg, key_file, keyp, 0));
 }
 
 void
-dhcp6_free_pubkey(int sig_alg, void **keyp)
+dhcp6_free_pubkey(void **keyp)
 {
-	void *key = *keyp;
+	if (*keyp != NULL) {
+		pubkey_data_t *pubkey = (pubkey_data_t *)*keyp;
 
+		free(pubkey->data);
+		free(pubkey);
+	}
 	*keyp = NULL;
-	if (sig_alg != DHCP6_SIGALG_RSASSA_PKCS1_V1_5)
-		return;
-#ifdef HAVE_OPENSSL
-	else if (key != NULL)
-		RSA_free((RSA *)key);
-#endif
 }
 
 void
 dhcp6_free_privkey(int sig_alg, void **keyp)
 {
-	void *key = *keyp;
-
-	*keyp = NULL;
-	if (sig_alg != DHCP6_SIGALG_RSASSA_PKCS1_V1_5)
-		return;
+	if (sig_alg == DHCP6_SIGALG_RSASSA_PKCS1_V1_5) {
 #ifdef HAVE_OPENSSL
-	else if (key != NULL)
-		RSA_free((RSA *)key);
+		if (*keyp != NULL)
+			RSA_free((RSA *)*keyp);
 #endif
+	}
+	*keyp = NULL;
 }
 
 int
