@@ -2067,13 +2067,19 @@ set_auth(ev, optinfo)
 		return (0);
 
 	optinfo->authproto = authparam->authproto;
-	optinfo->authalgorithm = authparam->rfc3315.authalgorithm;
-	optinfo->authrdm = authparam->rfc3315.authrdm;
 
 	switch (authparam->authproto) {
 	case DHCP6_AUTHPROTO_UNDEF: /* we simply do not need authentication */
 		return (0);
+	case DHCP6_AUTHPROTO_SEDHCPV6:
+		if (authparam->sedhcpv6.public_key) {
+			dhcp6_set_pubkey(authparam->sedhcpv6.public_key,
+					 &optinfo->sedhcpv6_pubkey);
+		}
+		return (0);
 	case DHCP6_AUTHPROTO_DELAYED:
+		optinfo->authalgorithm = authparam->rfc3315.authalgorithm;
+		optinfo->authrdm = authparam->rfc3315.authrdm;
 		if (ev->state == DHCP6S_INFOREQ) {
 			/*
 			 * In the current implementation, delayed

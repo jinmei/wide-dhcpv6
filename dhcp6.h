@@ -211,7 +211,7 @@ struct dhcp6_optinfo {
 	int authproto;
 	int authalgorithm;
 	int authrdm;
-	/* the followings are effective only when NOINFO is unset */
+	/* the following are effective only when NOINFO is unset */
 	u_int64_t authrd;
 	union {
 		struct {
@@ -224,6 +224,9 @@ struct dhcp6_optinfo {
 			int offset; /* offset to the HMAC field */
 			char val[16]; /* key value */
 		} aiu_reconfig;
+		struct {
+			struct dhcp6_vbuf pubkey;
+		} aiu_sedhcpv6;
 	} authinfo;
 #define delayedauth_keyid authinfo.aiu_delayed.keyid
 #define delayedauth_realmlen authinfo.aiu_delayed.realm.dv_len
@@ -232,6 +235,7 @@ struct dhcp6_optinfo {
 #define reconfigauth_type authinfo.aiu_reconfig.type
 #define reconfigauth_offset authinfo.aiu_reconfig.offset
 #define reconfigauth_val authinfo.aiu_reconfig.val
+#define sedhcpv6_pubkey authinfo.aiu_sedhcpv6.pubkey
 };
 
 /* DHCP6 base packet format */

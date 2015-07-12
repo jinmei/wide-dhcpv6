@@ -110,8 +110,6 @@ struct dhcp6_ifconf {
 	struct dhcp6_list reqopt_list;
 	struct ia_conflist iaconf_list;
 
-	struct authinfo *authinfo; /* authentication information
-				    * (no need to clear) */
 	struct authparam *authparam;
 	struct dhcp6_poolspec pool;
 };
@@ -1626,7 +1624,14 @@ create_authparam(struct authinfo *ainfo) {
 	memset(authparam, 0, sizeof(*authparam));
 
 	authparam->authproto = ainfo->protocol;
-	if (authparam->authproto != DHCP6_AUTHPROTO_SEDHCPV6) {
+	if (authparam->authproto == DHCP6_AUTHPROTO_SEDHCPV6) {
+		authparam->sedhcpv6.public_key =
+			dhcp6_copy_pubkey(ainfo->pubkey);
+		if (!authparam->sedhcpv6.public_key) {
+			free(authparam);
+			return (NULL);
+		}
+	} else {
 		authparam->rfc3315.authalgorithm = ainfo->algorithm;
 		authparam->rfc3315.authrdm = ainfo->rdm;
 		authparam->rfc3315.key = NULL;
@@ -1682,15 +1687,6 @@ add_options(opcode, ifc, cfl0)
 				    (char *)cfl->ptr);
 				return (-1);
 			}
-			/* to be deprecated */
-			if (ifc->authinfo != NULL) {
-				dprint(LOG_ERR, FNAME,
-				    "%s:%d authinfo is doubly specified on %s",
-				    configfilename, cfl->line, ifc->ifname);
-				return (-1);
-			}
-			ifc->authinfo = ainfo; 
-			/* end deprecated */
 			if (ifc->authparam != NULL) {
 				dprint(LOG_ERR, FNAME,
 				    "%s:%d authinfo is doubly specified on %s",

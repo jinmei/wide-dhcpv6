@@ -81,6 +81,7 @@
 #include <netdb.h>
 #include <ifaddrs.h>
 
+#include <auth.h>
 #include <dhcp6.h>
 #include <config.h>
 #include <common.h>
@@ -591,24 +592,45 @@ dhcp6_remove_evdata(ev)
 }
 
 struct authparam *
-copy_authparam(authparam)
-	struct authparam *authparam;
+copy_authparam(param)
+	struct authparam *param;
 {
 	struct authparam *dst;
 
 	if ((dst = malloc(sizeof(*dst))) == NULL)
 		return (NULL);
+	memset(dst, 0, sizeof(*dst));
 
-	memcpy(dst, authparam, sizeof(*dst));
+	if (param->authproto == DHCP6_AUTHPROTO_SEDHCPV6) {
+		dst->authproto = DHCP6_AUTHPROTO_SEDHCPV6;
+		if (param->sedhcpv6.public_key) {
+			dst->sedhcpv6.public_key =
+				dhcp6_copy_pubkey(param->sedhcpv6.public_key);
+			if (!dst->sedhcpv6.public_key)
+				goto fail;
+		}
+	} else
+		memcpy(dst, param, sizeof(*dst)); /* shallow copy okay */
 
 	return (dst);
+
+  fail:
+	if (dst->sedhcpv6.public_key)
+		dhcp6_free_pubkey(&dst->sedhcpv6.public_key);
+	free(dst);
+	return (NULL);
 }
 
 void
 free_authparam(authparamp)
 	struct authparam **authparamp;
 {
-	free(*authparamp);
+	struct authparam *authparam = *authparamp;
+	if (authparam->authproto == DHCP6_AUTHPROTO_SEDHCPV6) {
+		if (authparam->sedhcpv6.public_key)
+			dhcp6_free_pubkey(&authparam->sedhcpv6.public_key);
+	}
+	free(authparam);
 	*authparamp = NULL;
 }
 
@@ -2460,7 +2482,16 @@ dhcp6_set_options(type, optbp, optep, optinfo)
 		}
 	}
 
-	if (optinfo->authproto != DHCP6_AUTHPROTO_UNDEF) {
+	if (optinfo->authproto == DHCP6_AUTHPROTO_SEDHCPV6) {
+		if (optinfo->sedhcpv6_pubkey.dv_len > 0) {
+			if (copy_option(DH6OPT_PUBLIC_KEY,
+					optinfo->sedhcpv6_pubkey.dv_len,
+					optinfo->sedhcpv6_pubkey.dv_buf,
+					&p, optep, &len) != 0) {
+				goto fail;
+			}
+		}
+	} else if (optinfo->authproto != DHCP6_AUTHPROTO_UNDEF) {
 		struct dhcp6opt_auth *auth;
 		int authlen;
 		char *authinfo;
@@ -3039,6 +3070,8 @@ dhcp6optstr(type)
 		return ("subscriber ID");
 	case DH6OPT_CLIENT_FQDN:
 		return ("client FQDN");
+	case DH6OPT_PUBLIC_KEY:
+		return ("Public Key");
 	default:
 		snprintf(genstr, sizeof(genstr), "opt_%d", type);
 		return (genstr);

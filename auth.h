@@ -64,3 +64,6 @@ int dhcp6_read_pubkey __P((int, const char *, void **));
 int dhcp6_read_privkey __P((int, const char *, void **));
 void dhcp6_free_pubkey __P((void **));
 void dhcp6_free_privkey __P((int, void **));
+struct dhcp6_vbuf;
+void dhcp6_set_pubkey __P((void *, struct dhcp6_vbuf *));
+void *dhcp6_copy_pubkey __P((void *));

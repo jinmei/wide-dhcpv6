@@ -202,6 +202,11 @@ dhcp6_read_pubkey(int sig_alg, const char *key_file, void **keyp)
 			       ERR_reason_error_string(ERR_get_error()));
 			goto cleanup;
 		}
+		if (!PEM_write_bio_RSA_PUBKEY(bio, rsa)) {
+			dprint(LOG_ERR, FNAME, "failed to get RSA data: %s",
+			       ERR_reason_error_string(ERR_get_error()));
+			goto cleanup;
+		}
 		pubkey_len = BIO_get_mem_data(bio, &cp);
 		pubkey = malloc(sizeof(*pubkey));
 		if (pubkey != NULL) {
@@ -254,6 +259,33 @@ dhcp6_free_privkey(int sig_alg, void **keyp)
 #endif
 	}
 	*keyp = NULL;
+}
+
+void
+dhcp6_set_pubkey(void *key, struct dhcp6_vbuf *dst)
+{
+	pubkey_data_t *pubkey = (pubkey_data_t *)key;
+	dst->dv_len = pubkey->len;
+	dst->dv_buf = pubkey->data;
+}
+
+void *
+dhcp6_copy_pubkey(void *src)
+{
+	pubkey_data_t *dst;
+	pubkey_data_t *pubkey = (pubkey_data_t *)src;
+
+	dst = malloc(sizeof(*dst));
+	if (!dst)
+		return (dst);
+	dst->data = malloc(pubkey->len);
+	if (!dst->data) {
+		free(dst);
+		return (NULL);
+	}
+	dst->len = pubkey->len;
+
+	return (dst);
 }
 
 int
