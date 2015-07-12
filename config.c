@@ -1414,6 +1414,7 @@ configure_commit()
 		ifp->scriptpath = ifc->scriptpath;
 		ifc->scriptpath = NULL;
 		ifp->authparam = ifc->authparam;
+		ifc->authparam = NULL;
 		ifp->pool = ifc->pool;
 		ifc->pool.name = NULL;
 	}
@@ -1514,6 +1515,10 @@ clear_ifconf(iflist)
 
 		if (ifc->pool.name)
 			free(ifc->pool.name);
+
+		if (ifc->authparam)
+			free_authparam(&ifc->authparam);
+
 		free(ifc);
 	}
 }
