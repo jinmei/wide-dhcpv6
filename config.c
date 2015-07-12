@@ -42,6 +42,7 @@
 #include <linux/if_packet.h>
 #endif
 
+#include <assert.h>
 #include <syslog.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -1625,12 +1626,19 @@ create_authparam(struct authinfo *ainfo) {
 
 	authparam->authproto = ainfo->protocol;
 	if (authparam->authproto == DHCP6_AUTHPROTO_SEDHCPV6) {
-		authparam->sedhcpv6.public_key =
-			dhcp6_copy_pubkey(ainfo->pubkey);
-		if (!authparam->sedhcpv6.public_key) {
-			free(authparam);
-			return (NULL);
+		authparam->sedhcpv6.sig_algorithm = ainfo->sig_algorithm;
+		authparam->sedhcpv6.hash_algorithm = ainfo->hash_algorithm;
+		if (ainfo->pubkey) {
+			authparam->sedhcpv6.public_key =
+				dhcp6_copy_pubkey(ainfo->pubkey);
+			if (!authparam->sedhcpv6.public_key)
+				goto fail;
 		}
+		authparam->sedhcpv6.private_key =
+			dhcp6_copy_privkey(ainfo->sig_algorithm,
+					   ainfo->privkey);
+		if (!authparam->sedhcpv6.private_key)
+			goto fail;
 	} else {
 		authparam->rfc3315.authalgorithm = ainfo->algorithm;
 		authparam->rfc3315.authrdm = ainfo->rdm;
@@ -1640,6 +1648,16 @@ create_authparam(struct authinfo *ainfo) {
 	}
 
 	return (authparam);
+
+  fail:
+	assert(authparam->authproto == DHCP6_AUTHPROTO_SEDHCPV6);
+	if (authparam->sedhcpv6.public_key)
+		dhcp6_free_pubkey(&authparam->sedhcpv6.public_key);
+	if (authparam->sedhcpv6.private_key)
+		dhcp6_free_privkey(ainfo->sig_algorithm,
+				   &authparam->sedhcpv6.public_key);
+	free(authparam);
+	return (NULL);
 }
 
 static int

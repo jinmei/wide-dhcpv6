@@ -603,12 +603,19 @@ copy_authparam(param)
 
 	if (param->authproto == DHCP6_AUTHPROTO_SEDHCPV6) {
 		dst->authproto = DHCP6_AUTHPROTO_SEDHCPV6;
+		dst->sedhcpv6.sig_algorithm = param->sedhcpv6.sig_algorithm;
+		dst->sedhcpv6.hash_algorithm = param->sedhcpv6.hash_algorithm;
 		if (param->sedhcpv6.public_key) {
 			dst->sedhcpv6.public_key =
 				dhcp6_copy_pubkey(param->sedhcpv6.public_key);
 			if (!dst->sedhcpv6.public_key)
 				goto fail;
 		}
+		dst->sedhcpv6.private_key =
+			dhcp6_copy_privkey(param->sedhcpv6.sig_algorithm,
+					   param->sedhcpv6.private_key);
+		if (!dst->sedhcpv6.private_key)
+			goto fail;
 	} else
 		memcpy(dst, param, sizeof(*dst)); /* shallow copy okay */
 
@@ -617,6 +624,10 @@ copy_authparam(param)
   fail:
 	if (dst->sedhcpv6.public_key)
 		dhcp6_free_pubkey(&dst->sedhcpv6.public_key);
+	if (dst->sedhcpv6.private_key) {
+		dhcp6_free_privkey(dst->sedhcpv6.sig_algorithm,
+				   &dst->sedhcpv6.private_key);
+	}
 	free(dst);
 	return (NULL);
 }
@@ -629,6 +640,10 @@ free_authparam(authparamp)
 	if (authparam->authproto == DHCP6_AUTHPROTO_SEDHCPV6) {
 		if (authparam->sedhcpv6.public_key)
 			dhcp6_free_pubkey(&authparam->sedhcpv6.public_key);
+		if (authparam->sedhcpv6.private_key) {
+			dhcp6_free_privkey(authparam->sedhcpv6.sig_algorithm,
+					   &authparam->sedhcpv6.private_key);
+		}
 	}
 	free(authparam);
 	*authparamp = NULL;
@@ -2483,6 +2498,9 @@ dhcp6_set_options(type, optbp, optep, optinfo)
 	}
 
 	if (optinfo->authproto == DHCP6_AUTHPROTO_SEDHCPV6) {
+		struct dhcp6opt_signature *sig;
+		size_t sigopt_len;
+
 		if (optinfo->sedhcpv6_pubkey.dv_len > 0) {
 			if (copy_option(DH6OPT_PUBLIC_KEY,
 					optinfo->sedhcpv6_pubkey.dv_len,
@@ -2491,6 +2509,24 @@ dhcp6_set_options(type, optbp, optep, optinfo)
 				goto fail;
 			}
 		}
+		sigopt_len = sizeof(*sig) + optinfo->sedhcpv6_sig_len;
+		if ((sig = malloc(sigopt_len)) == NULL) {
+			dprint(LOG_ERR, FNAME, "failed to allocate "
+			    "memory for signature");
+			goto fail;
+		}
+		memset(sig, 0, sigopt_len);
+		sig->dh6_sig_hashalg =
+			(u_int8_t)optinfo->sedhcpv6_sig_hash_algorithm;
+		sig->dh6_sig_alg = (u_int8_t)optinfo->sedhcpv6_sig_algorithm;
+		optinfo->sedhcpv6_sig_offset =
+			((void *)p - (void *)optbp) + sizeof(*sig);
+		if (copy_option(DH6OPT_SIGNATURE, sigopt_len - 4,
+				&sig->dh6_sig_hashalg, &p, optep, &len) != 0) {
+			free(sig);
+			goto fail;
+		}
+		free(sig);
 	} else if (optinfo->authproto != DHCP6_AUTHPROTO_UNDEF) {
 		struct dhcp6opt_auth *auth;
 		int authlen;
@@ -2517,7 +2553,7 @@ dhcp6_set_options(type, optbp, optep, optinfo)
 			}
 		}
 		if ((auth = malloc(authlen)) == NULL) {
-			dprint(LOG_WARNING, FNAME, "failed to allocate "
+			dprint(LOG_ERR, FNAME, "failed to allocate "
 			    "memory for authentication information");
 			goto fail;
 		}
@@ -3071,7 +3107,13 @@ dhcp6optstr(type)
 	case DH6OPT_CLIENT_FQDN:
 		return ("client FQDN");
 	case DH6OPT_PUBLIC_KEY:
-		return ("Public Key");
+		return ("public key");
+	case DH6OPT_CERTIFICATE:
+		return ("certificate");
+	case DH6OPT_SIGNATURE:
+		return ("signature");
+	case DH6OPT_TIMESTAMP:
+		return ("timestamp");
 	default:
 		snprintf(genstr, sizeof(genstr), "opt_%d", type);
 		return (genstr);

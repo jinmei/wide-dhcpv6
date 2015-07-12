@@ -1328,6 +1328,15 @@ client6_send(ev)
 	/* calculate MAC if necessary, and put it to the message */
 	if (ev->authparam != NULL) {
 		switch (ev->authparam->authproto) {
+		case DHCP6_AUTHPROTO_SEDHCPV6:
+			if (dhcp6_sign_msg((unsigned char *)dh6, len,
+			    optinfo.sedhcpv6_sig_offset + sizeof(*dh6),
+			    ev->authparam)) {
+				dprint(LOG_WARNING, FNAME,
+				    "failed to sign DHCPv6 message");
+				goto end;
+			}
+			break;
 		case DHCP6_AUTHPROTO_DELAYED:
 			if (ev->authparam->rfc3315.key == NULL)
 				break;
@@ -2072,10 +2081,17 @@ set_auth(ev, optinfo)
 	case DHCP6_AUTHPROTO_UNDEF: /* we simply do not need authentication */
 		return (0);
 	case DHCP6_AUTHPROTO_SEDHCPV6:
+		optinfo->sedhcpv6_sig_hash_algorithm =
+			authparam->sedhcpv6.hash_algorithm;
+		optinfo->sedhcpv6_sig_algorithm =
+			authparam->sedhcpv6.sig_algorithm;
 		if (authparam->sedhcpv6.public_key) {
 			dhcp6_set_pubkey(authparam->sedhcpv6.public_key,
 					 &optinfo->sedhcpv6_pubkey);
 		}
+		optinfo->sedhcpv6_sig_len =
+			dhcp6_get_sigsize(authparam->sedhcpv6.sig_algorithm,
+					  authparam->sedhcpv6.private_key);
 		return (0);
 	case DHCP6_AUTHPROTO_DELAYED:
 		optinfo->authalgorithm = authparam->rfc3315.authalgorithm;

@@ -67,3 +67,7 @@ void dhcp6_free_privkey __P((int, void **));
 struct dhcp6_vbuf;
 void dhcp6_set_pubkey __P((void *, struct dhcp6_vbuf *));
 void *dhcp6_copy_pubkey __P((void *));
+void *dhcp6_copy_privkey __P((int, void *));
+size_t dhcp6_get_sigsize __P((int, void *));
+struct authparam;
+int dhcp6_sign_msg __P((unsigned char *, size_t, size_t, struct authparam *));

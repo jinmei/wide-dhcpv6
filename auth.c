@@ -116,6 +116,8 @@ static void md5_invalidate __P((md5_t *));
 static void md5_final __P((md5_t *, unsigned char *));
 static void md5_update __P((md5_t *, const unsigned char *, unsigned int));
 
+#define UNUSED(x) ((x) = (x))
+
 int
 dhcp6_auth_init()
 {
@@ -284,8 +286,133 @@ dhcp6_copy_pubkey(void *src)
 		return (NULL);
 	}
 	dst->len = pubkey->len;
+	memcpy(dst->data, pubkey->data, dst->len);
 
 	return (dst);
+}
+
+void *
+dhcp6_copy_privkey(int sig_alg, void *src)
+{
+	void *dst = NULL;
+
+	if (sig_alg != DHCP6_SIGALG_RSASSA_PKCS1_V1_5) {
+		dprint(LOG_ERR, FNAME, "unknown signing algorithm: %d",
+		       sig_alg);
+		return (dst);
+	}
+#ifdef HAVE_OPENSSL
+	else {
+		RSA *rsa = (RSA *)src;
+		RSA *rsa_dst;
+		BIO *bio = BIO_new(BIO_s_mem());
+
+		if (bio == NULL) {
+			dprint(LOG_ERR, FNAME, "failed to create BIO: %s",
+			       ERR_reason_error_string(ERR_get_error()));
+			goto cleanup;
+		}
+		if (!PEM_write_bio_RSAPrivateKey(bio, rsa, NULL, NULL, 0,
+						 NULL, NULL)) {
+			dprint(LOG_ERR, FNAME, "failed to get RSA data: %s",
+			       ERR_reason_error_string(ERR_get_error()));
+			goto cleanup;
+		}
+		rsa_dst = PEM_read_bio_RSAPrivateKey(bio, NULL, NULL, NULL);
+		if (rsa_dst == NULL) {
+			dprint(LOG_ERR, FNAME, "failed to copy RSA data: %s",
+			       ERR_reason_error_string(ERR_get_error()));
+			goto cleanup;
+		}
+		dst = rsa_dst;
+
+	  cleanup:
+		if (bio)
+			BIO_free_all(bio);
+	}
+#else
+	UNUSED(src);		/* silence compiler */
+#endif
+
+	return (dst);
+}
+
+size_t
+dhcp6_get_sigsize(int sig_alg, void *priv_key)
+{
+	if (sig_alg != DHCP6_SIGALG_RSASSA_PKCS1_V1_5) {
+		dprint(LOG_ERR, FNAME, "unknown signing algorithm: %d",
+		       sig_alg);
+		return (0);
+	} else if (priv_key)
+#ifdef HAVE_OPENSSL
+		return (RSA_size((RSA *)priv_key));
+#endif
+	return (0);
+}
+
+int
+dhcp6_sign_msg(unsigned char *buf, size_t len, size_t off,
+	       struct authparam *authparam)
+{
+	if (authparam->authproto != DHCP6_AUTHPROTO_SEDHCPV6) {
+		dprint(LOG_ERR, FNAME,
+		       "assumption failure: invalid sign protocol",
+		       authparam->authproto);
+		return (-1);
+	}
+	if (authparam->sedhcpv6.sig_algorithm !=
+	    DHCP6_SIGALG_RSASSA_PKCS1_V1_5) {
+		dprint(LOG_ERR, FNAME, "unknown signing algorithm: %d",
+		       authparam->sedhcpv6.sig_algorithm);
+		return (-1);
+	}
+	if (authparam->sedhcpv6.hash_algorithm != DHCP6_HASHALG_SHA256) {
+		dprint(LOG_ERR, FNAME, "unknown hash algorithm for sign: %d",
+		       authparam->sedhcpv6.hash_algorithm);
+		return (-1);
+	}
+
+#ifdef HAVE_OPENSSL
+	{
+		SHA256_CTX sha_ctx;
+		unsigned char digest[SHA256_DIGEST_LENGTH];
+		RSA *rsa = authparam->sedhcpv6.private_key;
+		unsigned char *sig = buf + off;
+		unsigned int siglen;
+
+		if (off + RSA_size(rsa) > len) {
+			/*
+			 * should be assured by the caller, but check it here
+			 * for safety.
+			 */
+			dprint(LOG_ERR, FNAME,
+			       "assumption failure: short buffer");
+			return (-1);
+		}
+
+		/* digest the data */
+		SHA256_Init(&sha_ctx);
+		SHA256_Update(&sha_ctx, buf, sizeof(len));
+		SHA256_Final(digest, &sha_ctx);
+
+		/* sign it */
+		if (RSA_sign(NID_sha256, digest, sizeof(digest), sig,
+			     &siglen, rsa) != 1) {
+			dprint(LOG_ERR, FNAME, "failed to sign: %s",
+			       ERR_reason_error_string(ERR_get_error()));
+			return (-1);
+		}
+	}
+#else
+	UNUSED(buf);
+	UNUSED(len);
+	UNUSED(off);
+	dprint(LOG_ERR, FNAME, "missing crypto library for sign");
+	return (-1);
+#endif
+
+	return (0);
 }
 
 int
@@ -317,7 +444,7 @@ dhcp6_calc_mac(buf, len, proto, alg, off, key)
 	unsigned char digest[MD5_DIGESTLENGTH];
 
 	/* right now, we don't care about the protocol */
-	proto = proto;		/* silence compiler */
+	UNUSED(proto);		/* silence compiler */
 
 	if (alg != DHCP6_AUTHALG_HMACMD5)
 		return (-1);
@@ -352,7 +479,7 @@ dhcp6_verify_mac(buf, len, proto, alg, off, key)
 	int result;
 
 	/* right now, we don't care about the protocol */
-	proto = proto;		/* silence compiler */
+	UNUSED(proto);		/* silence compiler */
 
 	if (alg != DHCP6_AUTHALG_HMACMD5)
 		return (-1);

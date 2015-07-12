@@ -68,6 +68,8 @@ struct authparam {
 			u_int64_t prevrd;
 		} rfc3315;
 		struct sedhcpv6 {
+			int hash_algorithm;
+			int sig_algorithm;
 			void *public_key; /* deep copy, need explicit free */
 			void *private_key; /* opaque private key value */
 		} sedhcpv6;
