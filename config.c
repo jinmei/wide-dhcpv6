@@ -143,6 +143,7 @@ static struct pool_conf *create_pool __P((char *, struct dhcp6_range *));
 struct host_conf *find_dynamic_hostconf __P((struct duid *));
 static int in6_addr_cmp __P((struct in6_addr *, struct in6_addr *));
 static void in6_addr_inc __P((struct in6_addr *));
+static struct authparam *create_authparam __P((struct authinfo *));
 
 int
 configure_interface(iflist)
@@ -295,6 +296,37 @@ configure_interface(iflist)
 					dprint(LOG_DEBUG, FNAME,
 					       "pool '%s' is specified to the interface '%s'",
 					       ifc->pool.name, ifc->ifname);
+				}
+				break;
+			case DECL_AUTHENTICATION:
+				if (dhcp6_mode != DHCP6_MODE_SERVER) {
+					dprint(LOG_INFO, FNAME, "%s:%d "
+					       "server-only configuration",
+					       configfilename, cfl->line);
+					goto bad;
+				}
+				struct authinfo *ainfo =
+					find_authinfo(auth_list0, cfl->ptr);
+				if (ainfo == NULL) {
+					dprint(LOG_ERR, FNAME, "%s:%d "
+					       "auth info (%s) is not defined",
+					       configfilename, cfl->line,
+					       (char *)cfl->ptr);
+					return (-1);
+				}
+				if (ifc->authparam != NULL) {
+					dprint(LOG_ERR, FNAME, "%s:%d authinfo "
+					       "is doubly specified on %s",
+					       configfilename, cfl->line,
+					       ifc->ifname);
+					return (-1);
+				}
+				ifc->authparam = create_authparam(ainfo);
+				if (ifc->authparam == NULL) {
+					dprint(LOG_ERR, FNAME,
+					       "failed to create authentication"
+					       " params");
+					return (-1);
 				}
 				break;
 			default:
@@ -1714,7 +1746,7 @@ add_options(opcode, ifc, cfl0)
 			ifc->authparam = create_authparam(ainfo);
 			if (ifc->authparam == NULL) {
 				dprint(LOG_ERR, FNAME,
-			            "ofailed to create authentication params");
+			            "failed to create authentication params");
 				return (-1);
 			}
 			break;

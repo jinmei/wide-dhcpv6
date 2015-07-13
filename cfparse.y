@@ -600,6 +600,14 @@ declaration:
 
 			$$ = l;
 		}
+	|	AUTHENTICATION AUTHNAME EOS
+		{
+			struct cf_list *l;
+
+			MAKE_CFLIST(l, DECL_AUTHENTICATION, NULL, NULL);
+			l->ptr = $2;
+			$$ = l;
+		}
 	;
 
 dhcpoption_list:

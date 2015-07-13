@@ -2718,9 +2718,9 @@ server6_send(type, ifp, origmsg, optinfo, from, fromlen,
 	int relayed = 0;
 	struct dhcp6 *dh6;
 	struct relayinfo *relayinfo;
+	struct authparam *authparam;
 
 	/* Unused params */
-	ifp = ifp;
 	optinfo = optinfo;
 	fromlen = fromlen;
 
@@ -2734,6 +2734,23 @@ server6_send(type, ifp, origmsg, optinfo, from, fromlen,
 	memset(dh6, 0, sizeof(*dh6));
 	dh6->dh6_msgtypexid = origmsg->dh6_msgtypexid;
 	dh6->dh6_msgtype = (u_int8_t)type;
+	authparam = ifp->authparam;
+
+	/* Prepare for signing if so configured */
+	if (authparam && authparam->authproto == DHCP6_AUTHPROTO_SEDHCPV6) {
+		roptinfo->authproto = DHCP6_AUTHPROTO_SEDHCPV6;
+		roptinfo->sedhcpv6_sig_hash_algorithm =
+			authparam->sedhcpv6.hash_algorithm;
+		roptinfo->sedhcpv6_sig_algorithm =
+			authparam->sedhcpv6.sig_algorithm;
+		if (authparam->sedhcpv6.public_key) {
+			dhcp6_set_pubkey(authparam->sedhcpv6.public_key,
+					 &roptinfo->sedhcpv6_pubkey);
+		}
+		roptinfo->sedhcpv6_sig_len =
+			dhcp6_get_sigsize(authparam->sedhcpv6.sig_algorithm,
+					  authparam->sedhcpv6.private_key);
+	}
 
 	/* set options in the reply message */
 	if ((optlen = dhcp6_set_options(type, (struct dhcp6opt *)(dh6 + 1),
@@ -2742,6 +2759,15 @@ server6_send(type, ifp, origmsg, optinfo, from, fromlen,
 		return (-1);
 	}
 	len += optlen;
+
+	/* Sign the reply message if necessary */
+	if (authparam && authparam->authproto == DHCP6_AUTHPROTO_SEDHCPV6) {
+		if (dhcp6_sign_msg((unsigned char *)dh6, len,
+		    roptinfo->sedhcpv6_sig_offset + sizeof(*dh6), authparam)) {
+			dprint(LOG_ERR, FNAME, "failed to sign DHCPv6 message");
+			return (-1);
+		}
+	}
 
 	/* calculate MAC if necessary, and put it to the message */
 	switch (roptinfo->authproto) {
