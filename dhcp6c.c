@@ -1332,7 +1332,7 @@ client6_send(ev)
 			if (dhcp6_sign_msg((unsigned char *)dh6, len,
 			    optinfo.sedhcpv6_sig_offset + sizeof(*dh6),
 			    ev->authparam)) {
-				dprint(LOG_WARNING, FNAME,
+				dprint(LOG_ERR, FNAME,
 				    "failed to sign DHCPv6 message");
 				goto end;
 			}
@@ -1951,7 +1951,29 @@ process_auth(authparam, dh6, len, optinfo)
 
 	switch (optinfo->authproto) {
 	case DHCP6_AUTHPROTO_UNDEF:
-		/* server did not provide authentication option */
+		/* server did not provide authentication or signature option */
+		break;
+	case DHCP6_AUTHPROTO_SEDHCPV6:
+		if (optinfo->sedhcpv6_sig_offset == 0) {
+			dprint(LOG_INFO, FNAME, "missing Signature option");
+			break;
+		}
+		if (optinfo->sedhcpv6_pubkey.dv_len == 0) {
+			dprint(LOG_INFO, FNAME, "missing Public Key option");
+			break;
+		}
+		/* XXX: complete leap of faith for now (not even TOFU) */
+		if (dhcp6_verify_msg((unsigned char *)dh6, len,
+				     optinfo->sedhcpv6_sig_offset +
+				     sizeof(*dh6),
+				     optinfo->sedhcpv6_sig_len,
+				     optinfo->sedhcpv6_sig_hash_algorithm,
+				     optinfo->sedhcpv6_sig_algorithm,
+				     &optinfo->sedhcpv6_pubkey)) {
+			dprint(LOG_INFO, FNAME, "failed to verify message");
+			break;
+		}
+		authenticated = 1;
 		break;
 	case DHCP6_AUTHPROTO_DELAYED:
 		if ((optinfo->authflags & DHCP6OPT_AUTHFLAG_NOINFO)) {
@@ -2056,7 +2078,7 @@ process_auth(authparam, dh6, len, optinfo)
 			 */
 			return (-1);
 		}
-	} else {
+	} else if (optinfo->authproto != DHCP6_AUTHPROTO_SEDHCPV6) {
 		/* if authenticated, update the "previous" RD value */
 		authparam->rfc3315.prevrd = optinfo->authrd;
 		authparam->rfc3315.flags &= ~AUTHPARAM_FLAGS_NOPREVRD;

@@ -73,6 +73,7 @@
 #include <openssl/rsa.h>
 #include <openssl/pem.h>
 #include <openssl/sha.h>
+#include <openssl/x509.h>
 #endif
 
 #include <dhcp6.h>
@@ -190,40 +191,33 @@ dhcp6_read_pubkey(int sig_alg, const char *key_file, void **keyp)
 #ifdef HAVE_OPENSSL
 	if (ret == 0) {
 		RSA *rsa = (RSA *)key; /* Right now, this should be RSA key */
-		char *cp = NULL;
+		unsigned char *pubkdata = NULL;
 		pubkey_data_t *pubkey = NULL;
-		long pubkey_len;
-		BIO *bio = NULL;
+		int pubkey_len;
 
 		ret = -1; 	/* reset return value */
 
 		/* Extract and copy binary in-memory data of the public key */
-		bio = BIO_new(BIO_s_mem());
-		if (bio == NULL) {
-			dprint(LOG_ERR, FNAME, "failed to create BIO: %s",
+		pubkey_len = i2d_RSA_PUBKEY(rsa, &pubkdata);
+		if (pubkey_len < 0) {
+			dprint(LOG_ERR, FNAME,
+			       "failed to dump public key data: %s",
 			       ERR_reason_error_string(ERR_get_error()));
 			goto cleanup;
 		}
-		if (!PEM_write_bio_RSA_PUBKEY(bio, rsa)) {
-			dprint(LOG_ERR, FNAME, "failed to get RSA data: %s",
-			       ERR_reason_error_string(ERR_get_error()));
-			goto cleanup;
-		}
-		pubkey_len = BIO_get_mem_data(bio, &cp);
 		pubkey = malloc(sizeof(*pubkey));
 		if (pubkey != NULL) {
 			pubkey->data = malloc(pubkey_len);
-			pubkey->len = (size_t)pubkey_len;
 			if (pubkey->data != NULL) {
+				memcpy(pubkey->data, pubkdata, pubkey_len);
+				pubkey->len = (size_t)pubkey_len;
 				key = pubkey;
 				ret = 0;
 			}
 		}
 	  cleanup:
-		if (ret != 0)
-			free(pubkey);
-		if (bio != NULL)
-			BIO_free_all(bio);
+		if (ret != 0 && pubkey)
+			OPENSSL_free(pubkey);
 		RSA_free(rsa);
 	}
 #endif
@@ -305,30 +299,29 @@ dhcp6_copy_privkey(int sig_alg, void *src)
 	else {
 		RSA *rsa = (RSA *)src;
 		RSA *rsa_dst;
-		BIO *bio = BIO_new(BIO_s_mem());
+		unsigned char *keydata = NULL;
+		const unsigned char *kd;
+		int key_len;
 
-		if (bio == NULL) {
-			dprint(LOG_ERR, FNAME, "failed to create BIO: %s",
+		key_len = i2d_RSAPrivateKey(rsa, &keydata);
+		if (key_len < 0) {
+			dprint(LOG_ERR, FNAME,
+			       "failed to dump private key data: %s",
 			       ERR_reason_error_string(ERR_get_error()));
 			goto cleanup;
 		}
-		if (!PEM_write_bio_RSAPrivateKey(bio, rsa, NULL, NULL, 0,
-						 NULL, NULL)) {
-			dprint(LOG_ERR, FNAME, "failed to get RSA data: %s",
-			       ERR_reason_error_string(ERR_get_error()));
-			goto cleanup;
-		}
-		rsa_dst = PEM_read_bio_RSAPrivateKey(bio, NULL, NULL, NULL);
+		kd = (const unsigned char *)keydata;
+		rsa_dst = d2i_RSAPrivateKey(NULL, &kd, key_len);
 		if (rsa_dst == NULL) {
-			dprint(LOG_ERR, FNAME, "failed to copy RSA data: %s",
+			dprint(LOG_ERR, FNAME, "failed to get RSA data: %s",
 			       ERR_reason_error_string(ERR_get_error()));
 			goto cleanup;
 		}
 		dst = rsa_dst;
 
 	  cleanup:
-		if (bio)
-			BIO_free_all(bio);
+		if (keydata)
+			OPENSSL_free(keydata);
 	}
 #else
 	UNUSED(src);		/* silence compiler */
@@ -344,9 +337,12 @@ dhcp6_get_sigsize(int sig_alg, void *priv_key)
 		dprint(LOG_ERR, FNAME, "unknown signing algorithm: %d",
 		       sig_alg);
 		return (0);
-	} else if (priv_key)
+	}
 #ifdef HAVE_OPENSSL
+	else if (priv_key)
 		return (RSA_size((RSA *)priv_key));
+#else
+	UNUSED(priv_key);
 #endif
 	return (0);
 }
@@ -387,13 +383,14 @@ dhcp6_sign_msg(unsigned char *buf, size_t len, size_t off,
 			 * for safety.
 			 */
 			dprint(LOG_ERR, FNAME,
-			       "assumption failure: short buffer");
+			       "assumption failure: short buffer (%u vs %u)",
+			       off + RSA_size(rsa), len);
 			return (-1);
 		}
 
 		/* digest the data */
 		SHA256_Init(&sha_ctx);
-		SHA256_Update(&sha_ctx, buf, sizeof(len));
+		SHA256_Update(&sha_ctx, buf, len);
 		SHA256_Final(digest, &sha_ctx);
 
 		/* sign it */
@@ -401,6 +398,12 @@ dhcp6_sign_msg(unsigned char *buf, size_t len, size_t off,
 			     &siglen, rsa) != 1) {
 			dprint(LOG_ERR, FNAME, "failed to sign: %s",
 			       ERR_reason_error_string(ERR_get_error()));
+			return (-1);
+		}
+		if (siglen != (unsigned int)RSA_size(rsa)) {
+			dprint(LOG_ERR, FNAME, "assumption failure: "
+			       "inconsistent siglen: %u vs %u",
+			       siglen, RSA_size(rsa));
 			return (-1);
 		}
 	}
@@ -413,6 +416,88 @@ dhcp6_sign_msg(unsigned char *buf, size_t len, size_t off,
 #endif
 
 	return (0);
+}
+
+int
+dhcp6_verify_msg(unsigned char *buf, size_t len, size_t offset, size_t sig_len,
+		 int hash_alg, int sig_alg, const struct dhcp6_vbuf *pubkey)
+{
+	int ret = -1;
+
+	/* sanity check: shouldn't happen unless the caller is buggy */
+	if (len < offset + sig_len) {
+		dprint(LOG_ERR, FNAME,
+		       "assumption failure: short buffer (%u vs %u)",
+			       offset + sig_len, len);
+		return (-1);
+	}
+
+	if (sig_alg != DHCP6_SIGALG_RSASSA_PKCS1_V1_5) {
+		dprint(LOG_ERR, FNAME, "unknown signing algorithm: %d",
+		       sig_alg);
+		return (-1);
+	}
+	if (hash_alg != DHCP6_HASHALG_SHA256) {
+		dprint(LOG_ERR, FNAME, "unknown hash algorithm for sign: %d",
+		       hash_alg);
+		return (-1);
+	}
+#ifdef HAVE_OPENSSL
+	{
+		RSA *rsa = NULL;
+		const unsigned char *p;
+		unsigned char *sig_copy = NULL;
+		SHA256_CTX sha_ctx;
+		unsigned char digest[SHA256_DIGEST_LENGTH];
+
+		p = (const unsigned char *)pubkey->dv_buf;
+		rsa = d2i_RSA_PUBKEY(NULL, &p, pubkey->dv_len);
+		if (!rsa) {
+			dprint(LOG_ERR, FNAME,
+			       "failed to build public key from data: %s",
+			       ERR_reason_error_string(ERR_get_error()));
+			goto cleanup;
+		}
+
+		/* XXX: see dhcp6_verify_mac */
+		sig_copy = malloc(sig_len);
+		if (!sig_copy) {
+			dprint(LOG_ERR, FNAME, "memory allocation failure");
+			goto cleanup;
+		}
+		memcpy(sig_copy, buf + offset, sig_len);
+		memset(buf + offset, 0, sig_len);
+
+		/* digest the data */
+		SHA256_Init(&sha_ctx);
+		SHA256_Update(&sha_ctx, buf, len);
+		SHA256_Final(digest, &sha_ctx);
+
+		/* verify signature */
+		if (!RSA_verify(NID_sha256, digest, sizeof(digest), sig_copy,
+				sig_len, rsa)) {
+			dprint(LOG_ERR, FNAME, "failed to verify signature: %s",
+			       ERR_reason_error_string(ERR_get_error()));
+			goto cleanup;
+		}
+		ret = 0;
+
+	  cleanup:
+		if (sig_copy) {
+			memcpy(buf + offset, sig_copy, sig_len);
+			free(sig_copy);
+		}
+		if (rsa)
+			RSA_free(rsa);
+	}
+#else
+	UNUSED(buf);
+	UNUSED(pubkey);
+	dprint(LOG_INFO, FNAME,
+	       "missing crypto library for Secure DHCPv6 signature");
+#endif
+
+	return (ret);
 }
 
 int

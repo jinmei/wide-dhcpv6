@@ -114,7 +114,7 @@ static int copy_option __P((u_int16_t, u_int16_t, void *, struct dhcp6opt **,
 static ssize_t gethwid __P((char *, int, const char *, u_int16_t *));
 static char *sprint_uint64 __P((char *, int, u_int64_t));
 static char *sprint_auth __P((struct dhcp6_optinfo *));
-
+static char *sprint_sig __P((struct dhcp6_optinfo *));
 int
 dhcp6_copy_list(dst, src)
 	struct dhcp6_list *dst, *src;
@@ -1404,6 +1404,8 @@ dhcp6_clear_options(optinfo)
 	if (optinfo->ifidopt_id != NULL)
 		free(optinfo->ifidopt_id);
 
+	/* sedhcpv6_pubkey has shallow copy, shouldn't be freed */
+
 	dhcp6_init_options(optinfo);
 }
 
@@ -1503,6 +1505,27 @@ dhcp6_copy_options(dst, src)
 	/* cleanup temporary resources */
 	dhcp6_clear_options(dst);
 	return (-1);
+}
+
+/* Common initial validation on inbound Secure DHCPv6 options */
+static int
+sedhcpv6_option_check(struct dhcp6_optinfo *optinfo) {
+	if (optinfo->authproto != DHCP6_AUTHPROTO_UNDEF &&
+	    optinfo->authproto != DHCP6_AUTHPROTO_SEDHCPV6) {
+		dprint(LOG_INFO, FNAME, "assumption failure: mixture of "
+		       "Secure DHCPv6 and RFC3315 Authentication");
+		return (-1);
+	}
+	if (optinfo->authproto == DHCP6_AUTHPROTO_UNDEF) {
+		optinfo->sedhcpv6_sig_algorithm = DHCP6_SIGALG_UNDEF;
+		optinfo->sedhcpv6_sig_hash_algorithm = DHCP6_HASHALG_UNDEF;
+		optinfo->sedhcpv6_sig_len = 0;
+		optinfo->sedhcpv6_sig_offset = 0;
+		optinfo->sedhcpv6_pubkey.dv_len = 0;
+		optinfo->sedhcpv6_pubkey.dv_buf = NULL;
+	}
+	optinfo->authproto = DHCP6_AUTHPROTO_SEDHCPV6;
+	return (0);
 }
 
 int
@@ -1651,6 +1674,38 @@ dhcp6_get_options(p, ep, optinfo)
 			memcpy(optinfo->relaymsg_msg, cp, optlen);
 			optinfo->relaymsg_len = optlen;
 			break;
+		case DH6OPT_PUBLIC_KEY:
+			/* Not really prohibited, but should be bogus */
+			if (optlen == 0)
+				goto malformed;
+			if (sedhcpv6_option_check(optinfo))
+				goto fail;
+			if (optinfo->sedhcpv6_pubkey.dv_len > 0) {
+				dprint(LOG_INFO,  FNAME, "multiple public key "
+				       "options (not supported)");
+				goto fail;
+			}
+			optinfo->sedhcpv6_pubkey.dv_len = optlen;
+			optinfo->sedhcpv6_pubkey.dv_buf = (void *)cp;
+			dprint(LOG_DEBUG, "", "  public key (len=%u)", optlen);
+			break;
+		case DH6OPT_SIGNATURE:
+			if (optlen < sizeof(struct dhcp6opt_signature) - 4)
+				goto malformed;
+			if (sedhcpv6_option_check(optinfo))
+				goto fail;
+			if (optinfo->sedhcpv6_sig_offset > 0) {
+				dprint(LOG_INFO,  FNAME, "multiple signature "
+				       "options found");
+				goto fail;
+			}
+			optinfo->sedhcpv6_sig_hash_algorithm = *cp++;
+			optinfo->sedhcpv6_sig_algorithm = *cp++;
+			optinfo->sedhcpv6_sig_offset = cp - bp;
+			optinfo->sedhcpv6_sig_len =
+				optlen - sizeof(struct dhcp6opt_signature) + 4;
+			dprint(LOG_DEBUG, "", "  %s", sprint_sig(optinfo));
+			break;
 		case DH6OPT_AUTH:
 			if (optlen < sizeof(struct dhcp6opt_auth) - 4)
 				goto malformed;
@@ -1659,6 +1714,8 @@ dhcp6_get_options(p, ep, optinfo)
 			 * Any DHCP message that includes more than one
 			 * authentication option MUST be discarded.
 			 * [RFC3315 Section 21.4.2]
+			 * Right now we don't allow mixture of RFC 3315 and
+			 * Secure DHCPv6 either.
 			 */
 			if (optinfo->authproto != DHCP6_AUTHPROTO_UNDEF) {
 				dprint(LOG_INFO, FNAME, "found more than one "
@@ -2181,6 +2238,47 @@ sprint_uint64(buf, buflen, i64)
 	snprintf(buf, buflen, "%04x %04x %04x %04x", rd0, rd1, rd2, rd3);
 
 	return (buf);
+}
+
+static char *
+sprint_sig(optinfo)
+	struct dhcp6_optinfo *optinfo;
+{
+	static char ret[1024];	/* XXX: thread unsafe */
+	char *sigalg, sigalg0[] = "unknown(255)";
+	char *hashalg, hashalg0[] = "unknown(255)";
+
+	switch (optinfo->sedhcpv6_sig_hash_algorithm) {
+	case DHCP6_HASHALG_SHA256:
+		hashalg = "SHA-256";
+		break;
+	case DHCP6_HASHALG_SHA512:
+		hashalg = "SHA-512";
+		break;
+	default:
+		snprintf(hashalg0, sizeof(hashalg0), "unknown(%d)",
+		    optinfo->sedhcpv6_sig_hash_algorithm & 0xff);
+		hashalg = hashalg;
+		break;
+	}
+
+	switch (optinfo->sedhcpv6_sig_algorithm) {
+	case DHCP6_SIGALG_RSASSA_PKCS1_V1_5:
+		sigalg = "RSASSA-PKCS1-v1_5";
+		break;
+	default:
+		snprintf(sigalg0, sizeof(sigalg0), "unknown(%d)",
+		    optinfo->sedhcpv6_sig_hash_algorithm & 0xff);
+		sigalg = sigalg;
+		break;
+	}
+
+	snprintf(ret, sizeof(ret), "signature: hash_alg: %s, sig_alg: %s, "
+		 "sig_offset: %u, sig_len: %u", hashalg, sigalg,
+		 (unsigned int)optinfo->sedhcpv6_sig_offset,
+		 (unsigned int)optinfo->sedhcpv6_sig_len);
+
+	return (ret);
 }
 
 static char *
