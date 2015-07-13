@@ -538,11 +538,13 @@ server6_init()
 	}
 #if !defined(__linux__) && !defined(__sun__)
 	/* make the socket write-only */
+#if 0	/* XXX: disable until we find a good way of detecting this */
 	if (shutdown(outsock, 0)) {
 		dprint(LOG_ERR, FNAME, "shutdown(outbound, 0): %s",
 		    strerror(errno));
 		exit(1);
 	}
+#endif
 #endif
 	freeaddrinfo(res);
 
