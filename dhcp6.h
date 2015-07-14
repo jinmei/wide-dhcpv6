@@ -244,6 +244,8 @@ struct dhcp6_optinfo {
 #define sedhcpv6_sig_hash_algorithm authinfo.aiu_sedhcpv6.sig_hash_algorithm
 #define sedhcpv6_sig_len authinfo.aiu_sedhcpv6.sig_len
 #define sedhcpv6_sig_offset authinfo.aiu_sedhcpv6.offset
+
+	struct timeval timestamp; /* used for Secure DHCPv6 */
 };
 
 /* DHCP6 base packet format */
@@ -413,6 +415,15 @@ struct dhcp6opt_signature {
 	u_int16_t dh6_sig_len;
 	u_int8_t dh6_sig_hashalg;
 	u_int8_t dh6_sig_alg;
+	/* signature data follows */
+} __attribute__ ((__packed__));
+
+/* Timestamp */
+struct dhcp6opt_timestamp {
+	u_int16_t dh6_ts_type;
+	u_int16_t dh6_ts_len;
+	u_int32_t dh6_ts_sec;	/* 'seconds' field of NTP timestamp */
+	u_int32_t dh6_ts_frac;	/* 'fraction' field of NTP timestamp */
 	/* signature data follows */
 } __attribute__ ((__packed__));
 

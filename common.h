@@ -157,6 +157,7 @@ extern int in6_scope __P((struct in6_addr *));
 extern void setloglevel __P((int));
 extern void dprint __P((int, const char *, const char *, ...));
 extern int get_duid __P((char *, struct duid *));
+extern int dhcp6_timestamp_undef __P((const struct timeval *));
 extern void dhcp6_init_options __P((struct dhcp6_optinfo *));
 extern void dhcp6_clear_options __P((struct dhcp6_optinfo *));
 extern int dhcp6_copy_options __P((struct dhcp6_optinfo *,

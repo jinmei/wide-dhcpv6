@@ -2750,6 +2750,7 @@ server6_send(type, ifp, origmsg, optinfo, from, fromlen,
 		roptinfo->sedhcpv6_sig_len =
 			dhcp6_get_sigsize(authparam->sedhcpv6.sig_algorithm,
 					  authparam->sedhcpv6.private_key);
+		gettimeofday(&roptinfo->timestamp, NULL); /* always set TS */
 	}
 
 	/* set options in the reply message */

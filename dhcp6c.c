@@ -2114,6 +2114,8 @@ set_auth(ev, optinfo)
 		optinfo->sedhcpv6_sig_len =
 			dhcp6_get_sigsize(authparam->sedhcpv6.sig_algorithm,
 					  authparam->sedhcpv6.private_key);
+		/* We always include timestamp option */
+		gettimeofday(&optinfo->timestamp, NULL);
 		return (0);
 	case DHCP6_AUTHPROTO_DELAYED:
 		optinfo->authalgorithm = authparam->rfc3315.authalgorithm;

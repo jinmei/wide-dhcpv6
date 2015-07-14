@@ -1334,6 +1334,19 @@ gethwid(buf, len, ifname, hwtypep)
 	return (-1);
 }
 
+int
+dhcp6_timestamp_undef(const struct timeval *tv)
+{
+	return (tv->tv_sec == -1 && tv->tv_usec == -1);
+}
+
+static void
+timestamp_set_undef(struct timeval *tv)
+{
+	tv->tv_sec = -1;
+	tv->tv_usec = -1;
+}
+
 void
 dhcp6_init_options(optinfo)
 	struct dhcp6_optinfo *optinfo;
@@ -1364,6 +1377,8 @@ dhcp6_init_options(optinfo)
 	optinfo->authproto = DHCP6_AUTHPROTO_UNDEF;
 	optinfo->authalgorithm = DHCP6_AUTHALG_UNDEF;
 	optinfo->authrdm = DHCP6_AUTHRDM_UNDEF;
+
+	timestamp_set_undef(&optinfo->timestamp);
 }
 
 void
@@ -1499,6 +1514,8 @@ dhcp6_copy_options(dst, src)
 		break;
 	}
 
+	dst->timestamp = src->timestamp;
+
 	return (0);
 
   fail:
@@ -1528,6 +1545,25 @@ sedhcpv6_option_check(struct dhcp6_optinfo *optinfo) {
 	return (0);
 }
 
+/* offset between Unix Epoch and 1970 Jan 1 */
+static const u_int32_t TIMESTAMP_EPOCH = 2208988800UL;
+static const u_int64_t NTP_SCALE_FRAC = 4294967296ULL; /* 2^32 */
+
+static void
+set_timestamp_option(const struct timeval *tv, struct dhcp6opt_timestamp *ts)
+{
+	ts->dh6_ts_sec = (u_int32_t)tv->tv_sec + TIMESTAMP_EPOCH;
+	ts->dh6_ts_frac =
+		((NTP_SCALE_FRAC * (u_int64_t)tv->tv_usec)) / 1000000UL;
+}
+
+static void
+get_timestamp_option(const struct dhcp6opt_timestamp *ts, struct timeval *tv)
+{
+	tv->tv_sec = (u_int32_t)ts->dh6_ts_sec - TIMESTAMP_EPOCH;
+	tv->tv_usec = ((u_int64_t)ts->dh6_ts_frac * 1000000UL) / NTP_SCALE_FRAC;
+}
+
 int
 dhcp6_get_options(p, ep, optinfo)
 	struct dhcp6opt *p, *ep;
@@ -1543,6 +1579,7 @@ dhcp6_get_options(p, ep, optinfo)
 	struct dhcp6opt_ia optia;
 	struct dhcp6_ia ia;
 	struct dhcp6_list sublist;
+	struct dhcp6opt_timestamp optts;
 	unsigned int authinfolen;
 
 	bp = (unsigned char *)p;
@@ -1705,6 +1742,20 @@ dhcp6_get_options(p, ep, optinfo)
 			optinfo->sedhcpv6_sig_len =
 				optlen - sizeof(struct dhcp6opt_signature) + 4;
 			dprint(LOG_DEBUG, "", "  %s", sprint_sig(optinfo));
+			break;
+		case DH6OPT_TIMESTAMP:
+			if (optlen != sizeof(optts) - 4)
+				goto malformed;
+			memcpy(&optts.dh6_ts_sec, cp, optlen);
+			dprint(LOG_DEBUG, "", "  timestamp: %lu.%lu",
+			       optts.dh6_ts_sec, optts.dh6_ts_frac);
+			if (!dhcp6_timestamp_undef(&optinfo->timestamp)) {
+				/* ignore duplicate */
+				dprint(LOG_INFO, FNAME,
+				       "duplicated timestamp option");
+				break;
+			}
+			get_timestamp_option(&optts, &optinfo->timestamp);
 			break;
 		case DH6OPT_AUTH:
 			if (optlen < sizeof(struct dhcp6opt_auth) - 4)
@@ -2623,6 +2674,16 @@ dhcp6_set_options(type, optbp, optep, optinfo)
 				&sig->dh6_sig_hashalg, &p, optep, &len) != 0) {
 			free(sig);
 			goto fail;
+		}
+		if (!dhcp6_timestamp_undef(&optinfo->timestamp)) {
+			struct dhcp6opt_timestamp ts;
+			set_timestamp_option(&optinfo->timestamp, &ts);
+			if (copy_option(DH6OPT_TIMESTAMP, sizeof(ts) - 4,
+					&ts.dh6_ts_sec, &p, optep, &len) != 0)
+			{
+				free(sig);
+				goto fail;
+			}
 		}
 		free(sig);
 	} else if (optinfo->authproto != DHCP6_AUTHPROTO_UNDEF) {
