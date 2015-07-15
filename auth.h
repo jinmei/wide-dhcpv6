@@ -65,6 +65,8 @@ struct auth_peer {
 	TAILQ_ENTRY(auth_peer) link;
 	struct duid id;
 	struct dhcp6_vbuf pubkey;
+	struct timeval ts_last;
+	struct timeval ts_rcv_last;
 };
 TAILQ_HEAD(dhcp6_auth_peerlist, auth_peer);
 
@@ -93,4 +95,5 @@ struct auth_peer *dhcp6_create_authpeer __P((const struct duid *,
 struct auth_peer *
 dhcp6_find_authpeer __P((const struct dhcp6_auth_peerlist *peers,
 			 const struct duid *peer_id));
+int dhcp6_check_timestamp __P((struct auth_peer *, const struct timeval *));
 #endif

@@ -515,6 +515,8 @@ dhcp6_create_authpeer(const struct duid *peer_id,
 		goto fail;
 	if (dhcp6_vbuf_copy(&peer->pubkey, pubkey))
 		goto fail;
+	dhcp6_timestamp_set_undef(&peer->ts_last);
+	dhcp6_timestamp_set_undef(&peer->ts_rcv_last);
 
 	return (peer);
 
@@ -536,6 +538,62 @@ dhcp6_find_authpeer(const struct dhcp6_auth_peerlist *peers,
 			return (peer);
 	}
 	return (NULL);
+}
+
+/*
+ * Secure DHCPv6 timestamp check
+ */
+
+/* Pre-defined constants (not configurable at this moment) */
+static const uint64_t ts_delta = 5000000ULL; /* 5sec in usec */
+static const uint64_t ts_fuzz = 1000000ULL; /* 1sec in usec */
+static const uint64_t ts_drift = 1; /* percent */
+
+static uint64_t
+tv2usec(const struct timeval *tv) {
+	return ((uint64_t)tv->tv_sec * 1000000ULL + (uint64_t)tv->tv_usec);
+}
+
+int
+dhcp6_check_timestamp(struct auth_peer *peer, const struct timeval *rcv_ts)
+{
+	struct timeval now;
+	uint64_t now_us, rcv_ts_us, last_ts_us, last_rcv_ts_us;
+
+	gettimeofday(&now, NULL);
+	now_us = tv2usec(&now);
+	rcv_ts_us = tv2usec(rcv_ts);
+
+	if (dhcp6_timestamp_undef(&peer->ts_last)) {
+		if ((now_us > rcv_ts_us && (now_us - rcv_ts_us) < ts_delta) ||
+		    (now_us <= rcv_ts_us && (rcv_ts_us - now_us) < ts_delta)) {
+			peer->ts_last = now;
+			peer->ts_rcv_last = *rcv_ts;
+			return (1);
+		}
+	} else {
+		last_ts_us = tv2usec(&peer->ts_last);
+		last_rcv_ts_us = tv2usec(&peer->ts_rcv_last);
+
+		/* If newer received timestamp is older, the check fails*/
+		if (rcv_ts_us < last_rcv_ts_us)
+			return (0);
+
+		/* Check the equality of the spec */
+		if (now_us + ts_fuzz >
+		    last_ts_us +
+		    ((rcv_ts_us - last_rcv_ts_us) * (100 - ts_drift)) / 100
+		    - ts_fuzz)
+		{
+			if (now_us > last_ts_us) {
+				peer->ts_last = now;
+				peer->ts_rcv_last = *rcv_ts;
+			}
+			return (1);
+		}
+	}
+
+	return (0);
 }
 
 int

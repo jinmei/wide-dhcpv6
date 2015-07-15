@@ -1996,6 +1996,14 @@ process_auth(authparam, dh6, len, optinfo)
 			break;
 		}
 
+		if (dhcp6_timestamp_undef(&optinfo->timestamp)) {
+			/* Right now we simply accept it without timestamp */
+			dprint(LOG_INFO, FNAME, "missing timestamp option");
+		} else if (!dhcp6_check_timestamp(peer, &optinfo->timestamp)) {
+			dprint(LOG_DEBUG, FNAME, "timestamp check failed");
+			break;
+		}
+
 		/* Verify the signature */
 		if (dhcp6_verify_msg((unsigned char *)dh6, len,
 				     optinfo->sedhcpv6_sig_offset +
@@ -2007,6 +2015,7 @@ process_auth(authparam, dh6, len, optinfo)
 			dprint(LOG_INFO, FNAME, "failed to verify message");
 			break;
 		}
+		dprint(LOG_DEBUG, FNAME, "message signature validated");
 		authenticated = 1;
 		break;
 	case DHCP6_AUTHPROTO_DELAYED:

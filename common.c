@@ -1341,8 +1341,8 @@ dhcp6_timestamp_undef(const struct timeval *tv)
 	return (tv->tv_sec == -1 && tv->tv_usec == -1);
 }
 
-static void
-timestamp_set_undef(struct timeval *tv)
+void
+dhcp6_timestamp_set_undef(struct timeval *tv)
 {
 	tv->tv_sec = -1;
 	tv->tv_usec = -1;
@@ -1379,7 +1379,7 @@ dhcp6_init_options(optinfo)
 	optinfo->authalgorithm = DHCP6_AUTHALG_UNDEF;
 	optinfo->authrdm = DHCP6_AUTHRDM_UNDEF;
 
-	timestamp_set_undef(&optinfo->timestamp);
+	dhcp6_timestamp_set_undef(&optinfo->timestamp);
 }
 
 void
