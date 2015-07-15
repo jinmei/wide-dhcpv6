@@ -29,6 +29,14 @@
  * SUCH DAMAGE.
  */
 
+#ifndef __AUTH_H
+#define __AUTH_H 1
+
+#include <sys/types.h>
+#include <sys/queue.h>
+
+#include <dhcp6.h>
+
 #ifdef __sun__
 #define	__P(x)	x
 #ifndef	U_INT32_T_DEFINED
@@ -53,6 +61,13 @@ struct keyinfo {
 	time_t expire;		/* expiration time (0 means forever) */
 };
 
+struct auth_peer {
+	TAILQ_ENTRY(auth_peer) link;
+	struct duid id;
+	struct dhcp6_vbuf pubkey;
+};
+TAILQ_HEAD(dhcp6_auth_peerlist, auth_peer);
+
 extern int dhcp6_validate_key __P((struct keyinfo *));
 extern int dhcp6_calc_mac __P((unsigned char *, size_t, int, int, size_t,
     struct keyinfo *));
@@ -64,7 +79,7 @@ int dhcp6_read_pubkey __P((int, const char *, void **));
 int dhcp6_read_privkey __P((int, const char *, void **));
 void dhcp6_free_pubkey __P((void **));
 void dhcp6_free_privkey __P((int, void **));
-struct dhcp6_vbuf;
+
 void dhcp6_set_pubkey __P((void *, struct dhcp6_vbuf *));
 void *dhcp6_copy_pubkey __P((void *));
 void *dhcp6_copy_privkey __P((int, void *));
@@ -73,3 +88,9 @@ struct authparam;
 int dhcp6_sign_msg __P((unsigned char *, size_t, size_t, struct authparam *));
 int dhcp6_verify_msg __P((unsigned char *, size_t, size_t, size_t, int, int,
 			  const struct dhcp6_vbuf *pubkey));
+struct auth_peer *dhcp6_create_authpeer __P((const struct duid *,
+					     const struct dhcp6_vbuf *));
+struct auth_peer *
+dhcp6_find_authpeer __P((const struct dhcp6_auth_peerlist *peers,
+			 const struct duid *peer_id));
+#endif

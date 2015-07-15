@@ -500,6 +500,44 @@ dhcp6_verify_msg(unsigned char *buf, size_t len, size_t offset, size_t sig_len,
 	return (ret);
 }
 
+struct auth_peer *
+dhcp6_create_authpeer(const struct duid *peer_id,
+		      const struct dhcp6_vbuf *pubkey)
+{
+	struct auth_peer *peer = NULL;
+
+	peer = malloc(sizeof(*peer));
+	if (!peer)
+		return (NULL);
+	memset(peer, 0, sizeof(*peer));
+
+	if (duidcpy(&peer->id, peer_id))
+		goto fail;
+	if (dhcp6_vbuf_copy(&peer->pubkey, pubkey))
+		goto fail;
+
+	return (peer);
+
+  fail:
+	duidfree(&peer->id);
+	dhcp6_vbuf_free(&peer->pubkey);
+	free(peer);
+	return (NULL);
+}
+
+struct auth_peer *
+dhcp6_find_authpeer(const struct dhcp6_auth_peerlist *peers,
+		    const struct duid *peer_id)
+{
+	struct auth_peer *peer;
+
+	for (peer = TAILQ_FIRST(peers); peer; peer = TAILQ_NEXT(peer, link)) {
+		if (duidcmp(&peer->id, peer_id) == 0)
+			return (peer);
+	}
+	return (NULL);
+}
+
 int
 dhcp6_validate_key(key)
 	struct keyinfo *key;

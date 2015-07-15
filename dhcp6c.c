@@ -108,6 +108,8 @@ static int ctldigestlen;
 
 static int infreq_mode = 0;
 
+static struct dhcp6_auth_peerlist client_auth_peers;
+
 static inline int get_val32 __P((unsigned char **, unsigned int *,
 				 u_int32_t *));
 static inline int get_ifname __P((unsigned char **, unsigned int *,
@@ -165,6 +167,8 @@ main(argc, argv)
 #ifndef HAVE_ARC4RANDOM
 	srandom(time(NULL) & getpid());
 #endif
+
+	TAILQ_INIT(&client_auth_peers);
 
 	if ((progname = strrchr(*argv, '/')) == NULL)
 		progname = *argv;
@@ -1948,21 +1952,51 @@ process_auth(authparam, dh6, len, optinfo)
 {
 	struct keyinfo *key = NULL;
 	int authenticated = 0;
+	struct auth_peer *peer;
 
 	switch (optinfo->authproto) {
 	case DHCP6_AUTHPROTO_UNDEF:
 		/* server did not provide authentication or signature option */
 		break;
 	case DHCP6_AUTHPROTO_SEDHCPV6:
+		/* Signature Option must be provided */
 		if (optinfo->sedhcpv6_sig_offset == 0) {
 			dprint(LOG_INFO, FNAME, "missing Signature option");
 			break;
 		}
+		/*
+		 * This implementation only supports Public Key option,
+		 * and it's mandatory.
+		 */
 		if (optinfo->sedhcpv6_pubkey.dv_len == 0) {
 			dprint(LOG_INFO, FNAME, "missing Public Key option");
 			break;
 		}
-		/* XXX: complete leap of faith for now (not even TOFU) */
+
+		/* Validate the key (this implementation always uses TOFU) */
+		peer = dhcp6_find_authpeer(&client_auth_peers,
+					   &optinfo->serverID);
+		if (!peer) {
+			dprint(LOG_INFO, FNAME, "Unknown authentication peer, "
+			       "applying TOFU: %s",
+			       duidstr(&optinfo->serverID));
+			peer = dhcp6_create_authpeer(&optinfo->serverID,
+						     &optinfo->sedhcpv6_pubkey);
+			if (!peer) {
+				dprint(LOG_ERR, FNAME, "failed to create "
+				       "authentication peer");
+				break;
+			}
+			TAILQ_INSERT_TAIL(&client_auth_peers, peer, link);
+		} else if (dhcp6_vbuf_cmp(&peer->pubkey,
+					  &optinfo->sedhcpv6_pubkey)) {
+			dprint(LOG_INFO, FNAME,
+			       "unknown server public key from %s",
+			       duidstr(&optinfo->serverID));
+			break;
+		}
+
+		/* Verify the signature */
 		if (dhcp6_verify_msg((unsigned char *)dh6, len,
 				     optinfo->sedhcpv6_sig_offset +
 				     sizeof(*dh6),

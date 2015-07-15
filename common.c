@@ -320,7 +320,8 @@ dhcp6_add_listval(head, type, val, sublist)
 
 int
 dhcp6_vbuf_copy(dst, src)
-	struct dhcp6_vbuf *dst, *src;
+	struct dhcp6_vbuf *dst;
+	const struct dhcp6_vbuf *src;
 {
 	dst->dv_buf = malloc(src->dv_len);
 	if (dst->dv_buf == NULL)
@@ -344,7 +345,7 @@ dhcp6_vbuf_free(vbuf)
 
 int
 dhcp6_vbuf_cmp(vb1, vb2)
-	struct dhcp6_vbuf *vb1, *vb2;
+	const struct dhcp6_vbuf *vb1, *vb2;
 {
 	if (vb1->dv_len != vb2->dv_len)
 		return (vb1->dv_len - vb2->dv_len);
@@ -3090,7 +3091,8 @@ dhcp6_reset_timer(ev)
 
 int
 duidcpy(dd, ds)
-	struct duid *dd, *ds;
+	struct duid *dd;
+	const struct duid *ds;
 {
 	dd->duid_len = ds->duid_len;
 	if ((dd->duid_id = malloc(dd->duid_len)) == NULL) {
@@ -3104,7 +3106,7 @@ duidcpy(dd, ds)
 
 int
 duidcmp(d1, d2)
-	struct duid *d1, *d2;
+	const struct duid *d1, *d2;
 {
 	if (d1->duid_len == d2->duid_len) {
 		return (memcmp(d1->duid_id, d2->duid_id, d1->duid_len));

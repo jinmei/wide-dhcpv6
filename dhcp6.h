@@ -31,6 +31,9 @@
 #ifndef __DHCP6_H_DEFINED
 #define __DHCP6_H_DEFINED
 
+#include <sys/types.h>
+#include <sys/queue.h>
+
 #ifdef __sun__
 #define	__P(x)	x
 typedef uint8_t u_int8_t;

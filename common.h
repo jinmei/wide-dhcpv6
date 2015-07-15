@@ -134,9 +134,11 @@ extern struct dhcp6_listval *dhcp6_find_listval __P((struct dhcp6_list *,
     dhcp6_listval_type_t, void *, int));
 extern struct dhcp6_listval *dhcp6_add_listval __P((struct dhcp6_list *,
     dhcp6_listval_type_t, void *, struct dhcp6_list *));
-extern int dhcp6_vbuf_copy __P((struct dhcp6_vbuf *, struct dhcp6_vbuf *));
+extern int dhcp6_vbuf_copy __P((struct dhcp6_vbuf *,
+				const struct dhcp6_vbuf *));
 extern void dhcp6_vbuf_free __P((struct dhcp6_vbuf *));
-extern int dhcp6_vbuf_cmp __P((struct dhcp6_vbuf *, struct dhcp6_vbuf *));
+extern int dhcp6_vbuf_cmp __P((const struct dhcp6_vbuf *,
+			       const struct dhcp6_vbuf *));
 extern struct dhcp6_event *dhcp6_create_event __P((struct dhcp6_if *, int));
 extern void dhcp6_remove_event __P((struct dhcp6_event *));
 extern void dhcp6_remove_evdata __P((struct dhcp6_event *));
@@ -174,8 +176,8 @@ extern char *dhcp6_stcodestr __P((u_int16_t));
 extern char *duidstr __P((struct duid *));
 extern char *dhcp6_event_statestr __P((struct dhcp6_event *));
 extern int get_rdvalue __P((int, void *, size_t));
-extern int duidcpy __P((struct duid *, struct duid *));
-extern int duidcmp __P((struct duid *, struct duid *));
+extern int duidcpy __P((struct duid *, const struct duid *));
+extern int duidcmp __P((const struct duid *, const struct duid *));
 extern void duidfree __P((struct duid *));
 extern int ifaddrconf __P((ifaddrconf_cmd_t, char *, struct sockaddr_in6 *,
 			   int, int, int));
