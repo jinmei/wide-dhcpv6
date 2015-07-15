@@ -3543,6 +3543,8 @@ process_auth(dh6, len, client_conf, optinfo, roptinfo)
 		 * client MAY ignore the information in advertise messages.
 		 */
 		return (0);
+	case DHCP6_AUTHPROTO_SEDHCPV6:
+		return (0); /* server side authentication isn't implemented */
 	case DHCP6_AUTHPROTO_DELAYED:
 		if (optinfo->authalgorithm != DHCP6_AUTHALG_HMACMD5) {
 			dprint(LOG_INFO, FNAME, "unknown authentication "
