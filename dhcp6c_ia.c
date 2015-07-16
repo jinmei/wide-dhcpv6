@@ -296,9 +296,11 @@ update_authparam(ia, authparam)
 		return (0);
 	}
 
-	/* update the previous RD value and flags */
-	ia->authparam->rfc3315.prevrd = authparam->rfc3315.prevrd;
-	ia->authparam->rfc3315.flags = authparam->rfc3315.flags;
+	if (authparam->authproto != DHCP6_AUTHPROTO_SEDHCPV6) {
+		/* update the previous RD value and flags */
+		ia->authparam->rfc3315.prevrd = authparam->rfc3315.prevrd;
+		ia->authparam->rfc3315.flags = authparam->rfc3315.flags;
+	}
 
 	return (0);
 }
