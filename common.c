@@ -1553,9 +1553,9 @@ static const u_int64_t NTP_SCALE_FRAC = 4294967296ULL; /* 2^32 */
 static void
 set_timestamp_option(const struct timeval *tv, struct dhcp6opt_timestamp *ts)
 {
-	ts->dh6_ts_sec = (u_int32_t)tv->tv_sec + TIMESTAMP_EPOCH;
+	ts->dh6_ts_sec = htonl((u_int32_t)tv->tv_sec + TIMESTAMP_EPOCH);
 	ts->dh6_ts_frac =
-		((NTP_SCALE_FRAC * (u_int64_t)tv->tv_usec)) / 1000000UL;
+		htonl(((NTP_SCALE_FRAC * (u_int64_t)tv->tv_usec)) / 1000000UL);
 }
 
 static void
@@ -1748,6 +1748,8 @@ dhcp6_get_options(p, ep, optinfo)
 			if (optlen != sizeof(optts) - 4)
 				goto malformed;
 			memcpy(&optts.dh6_ts_sec, cp, optlen);
+			optts.dh6_ts_sec = ntohl(optts.dh6_ts_sec);
+			optts.dh6_ts_frac = ntohl(optts.dh6_ts_frac);
 			dprint(LOG_DEBUG, "", "  timestamp: %lu.%lu",
 			       optts.dh6_ts_sec, optts.dh6_ts_frac);
 			if (!dhcp6_timestamp_undef(&optinfo->timestamp)) {
@@ -3327,9 +3329,9 @@ char *
 dhcp6_stcodestr(code)
 	u_int16_t code;
 {
-	static char genstr[sizeof("code255") + 1]; /* XXX thread unsafe */
+	static char genstr[sizeof("code999") + 1]; /* XXX thread unsafe */
 
-	if (code > 255)
+	if (code > 999)
 		return ("INVALID code");
 
 	switch(code) {
@@ -3347,6 +3349,14 @@ dhcp6_stcodestr(code)
 		return ("use multicast");
 	case DH6OPT_STCODE_NOPREFIXAVAIL:
 		return ("no prefixes");
+	case DH6OPT_STCODE_ALGNOTSUPPORTED:
+		return ("algorithm not supported");
+	case DH6OPT_STCODE_AUTHFAIL:
+		return ("authentication failure");
+	case DH6OPT_STCODE_TSFAIL:
+		return ("timestamp check failed");
+	case DH6OPT_STCODE_SIGFAIL:
+		return ("signature check failed");
 	default:
 		snprintf(genstr, sizeof(genstr), "code%d", code);
 		return (genstr);
