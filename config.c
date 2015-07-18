@@ -1422,8 +1422,6 @@ configure_commit()
 		if (ifp->scriptpath != NULL)
 			free(ifp->scriptpath);
 		ifp->scriptpath = NULL;
-		if (ifp->authparam != NULL)
-			free_authparam(&ifp->authparam);
 
 		for (ifc = dhcp6_ifconflist; ifc; ifc = ifc->next) {
 			if (strcmp(ifp->ifname, ifc->ifname) == 0)
@@ -1444,7 +1442,10 @@ configure_commit()
 		ifp->server_pref = ifc->server_pref;
 		ifp->scriptpath = ifc->scriptpath;
 		ifc->scriptpath = NULL;
-		ifp->authparam = ifc->authparam;
+		if (ifc->authparam) {
+			free_authparam(&ifp->authparam);
+			ifp->authparam = ifc->authparam;
+		}
 		ifc->authparam = NULL;
 		ifp->pool = ifc->pool;
 		ifc->pool.name = NULL;

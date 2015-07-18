@@ -70,6 +70,12 @@ ifinit(ifname)
 	}
 	memset(ifp, 0, sizeof(*ifp));
 
+	ifp->authparam = malloc(sizeof(*ifp->authparam));
+	if (!ifp->authparam)
+		goto fail;
+	memset(ifp->authparam, 0, sizeof(*ifp->authparam));
+	ifp->authparam->authproto = DHCP6_AUTHPROTO_UNDEF;
+
 	TAILQ_INIT(&ifp->event_list);
 
 	if ((ifp->ifname = strdup(ifname)) == NULL) {
@@ -82,8 +88,6 @@ ifinit(ifname)
 
 	TAILQ_INIT(&ifp->reqopt_list);
 	TAILQ_INIT(&ifp->iaconf_list);
-
-	ifp->authparam = NULL;
 
 	{
 		struct ifaddrs *ifa, *ifap;
@@ -120,6 +124,8 @@ ifinit(ifname)
   fail:
 	if (ifp->ifname != NULL)
 		free(ifp->ifname);
+	if (ifp->authparam != NULL)
+		free_authparam(&ifp->authparam);
 	free(ifp);
 	return (NULL);
 }
