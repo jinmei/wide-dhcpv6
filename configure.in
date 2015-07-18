@@ -259,7 +259,7 @@ AC_ARG_WITH(openssl,
 if test "$use_openssl" != no; then
    AC_DEFINE([HAVE_OPENSSL], 1, [Define to 1 if you have and use OpenSSL])
    CPPFLAGS="$CPPFLAGS -I${use_openssl}/include"
-   LDFLAGS="$LDFLAGS -lcrypto"
+   LDFLAGS="$LDFLAGS -L${use_openssl}/lib -lcrypto"
 fi
 
 AC_CHECK_HEADERS(stdarg.h)

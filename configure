@@ -4778,7 +4778,7 @@ if test "$use_openssl" != no; then
 $as_echo "#define HAVE_OPENSSL 1" >>confdefs.h
 
    CPPFLAGS="$CPPFLAGS -I${use_openssl}/include"
-   LDFLAGS="$LDFLAGS -lcrypto"
+   LDFLAGS="$LDFLAGS -L${use_openssl}/lib -lcrypto"
 fi
 
 for ac_header in stdarg.h
