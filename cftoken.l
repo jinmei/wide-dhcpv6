@@ -261,6 +261,7 @@ ecl		\}
 <S_CNF>key { DECHO; return (KEY); };
 <S_CNF>public-key-file { DECHO; return (PUBLIC_KEY_FILE); };
 <S_CNF>private-key-file { DECHO; return (PRIVATE_KEY_FILE); };
+<S_CNF>cert-file { DECHO; return (CERT_FILE); };
 
 	/* authentication protocols */
 <S_CNF>delayed { DECHO; return (DELAYED); };

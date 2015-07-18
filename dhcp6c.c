@@ -1161,7 +1161,7 @@ client6_send(ev)
 	struct dhcp6_event *ev;
 {
 	struct dhcp6_if *ifp;
-	char buf[BUFSIZ];
+	char buf[2048];		/* TODO: this should be dynamic */
 	struct sockaddr_in6 dst;
 	struct dhcp6 *dh6;
 	struct dhcp6_optinfo optinfo;
@@ -2153,6 +2153,10 @@ set_auth(ev, optinfo)
 		if (authparam->sedhcpv6.public_key) {
 			dhcp6_set_pubkey(authparam->sedhcpv6.public_key,
 					 &optinfo->sedhcpv6_pubkey);
+		}
+		if (authparam->sedhcpv6.certificate) {
+			dhcp6_set_certificate(authparam->sedhcpv6.certificate,
+					      &optinfo->sedhcpv6_certificate);
 		}
 		optinfo->sedhcpv6_sig_len =
 			dhcp6_get_sigsize(authparam->sedhcpv6.sig_algorithm,

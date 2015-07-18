@@ -103,6 +103,7 @@ typedef struct pubkey_data {
 	void *data;
 	size_t len;
 } pubkey_data_t;
+typedef pubkey_data_t cert_data_t;
 
 static void hmacmd5_init __P((hmacmd5_t *, const unsigned char *,
     unsigned int));
@@ -233,6 +234,68 @@ dhcp6_read_privkey(int sig_alg, const char *key_file, void **keyp)
 	return (read_key(sig_alg, key_file, keyp, 0));
 }
 
+int
+dhcp6_read_certificate(const char *cert_file, void **certificatep)
+{
+	int ret = -1;
+	FILE *fp = NULL;
+	void *certificate;
+
+	fp = fopen(cert_file, "r");
+	if (!fp) {
+		dprint(LOG_ERR, FNAME, "failed to open certificate file (%s): "
+		       "%s", cert_file, strerror(errno));
+		goto cleanup;
+	}
+#ifdef HAVE_OPENSSL
+	else {
+		X509 *x509;
+		unsigned char *certdata = NULL;
+		cert_data_t *cert = NULL;
+		int certlen;
+
+		ret = -1; 	/* reset return value */
+
+		x509 = PEM_read_X509(fp, NULL, NULL, NULL);
+		if (!x509) {
+			dprint(LOG_ERR, FNAME, "failed to read "
+			       "certificate file (%s): %s", cert_file,
+			       ERR_reason_error_string(ERR_get_error()));
+			goto cleanup;
+		}
+		certlen =  i2d_X509(x509, &certdata);
+		if (certlen < 0) {
+			dprint(LOG_ERR, FNAME,
+			       "failed to dump certificate data: %s",
+			       ERR_reason_error_string(ERR_get_error()));
+			goto cleanup;
+		}
+		cert = malloc(sizeof(*cert));
+		if (cert) {
+			cert->data = malloc(certlen);
+			if (cert->data) {
+				memcpy(cert->data, certdata, certlen);
+				cert->len = (size_t)certlen;
+				certificate = cert;
+				ret = 0;
+			}
+		  cleanup:
+			if (ret != 0 && cert)
+				OPENSSL_free(cert);
+			X509_free(x509);
+		}
+	}
+#else
+	dprint(LOG_ERR, FNAME, "missing crypto library to read certificate");
+	goto cleanup;
+#endif
+
+	if (ret == 0)
+		*certificatep = certificate;
+
+	return (ret);
+}
+
 void
 dhcp6_free_pubkey(void **keyp)
 {
@@ -243,6 +306,12 @@ dhcp6_free_pubkey(void **keyp)
 		free(pubkey);
 	}
 	*keyp = NULL;
+}
+
+void
+dhcp6_free_certificate(void **certp)
+{
+	dhcp6_free_pubkey(certp);
 }
 
 void
@@ -265,6 +334,12 @@ dhcp6_set_pubkey(void *key, struct dhcp6_vbuf *dst)
 	dst->dv_buf = pubkey->data;
 }
 
+void
+dhcp6_set_certificate(void *cert, struct dhcp6_vbuf *dst)
+{
+	dhcp6_set_pubkey(cert, dst);
+}
+
 void *
 dhcp6_copy_pubkey(void *src)
 {
@@ -283,6 +358,13 @@ dhcp6_copy_pubkey(void *src)
 	memcpy(dst->data, pubkey->data, dst->len);
 
 	return (dst);
+}
+
+void *
+dhcp6_copy_certificate(void *src)
+{
+	/* the format is the same, so we can reuse it */
+	return (dhcp6_copy_pubkey(src));
 }
 
 void *

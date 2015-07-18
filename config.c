@@ -927,6 +927,8 @@ configure_authinfo(authlist)
 		ainfo->hash_algorithm = DHCP6_HASHALG_UNDEF;
 		ainfo->pubkey_file = NULL;
 		ainfo->pubkey = NULL;
+		ainfo->cert_file = NULL;
+		ainfo->certificate = NULL;
 		ainfo->privkey_file = NULL;
 		ainfo->privkey = NULL;
 
@@ -1000,6 +1002,16 @@ configure_authinfo(authlist)
 					goto bad;
 				}
 				break;
+			case AUTHPARAM_CERTFILE:
+				ainfo->cert_file =
+					copy_quotedstr((char *)cfl->ptr);
+				if (ainfo->cert_file == NULL) {
+					dprint(LOG_ERR, FNAME, "failed to copy "
+					       "auth certificate file: %s",
+					       (char *)cfl->ptr);
+					goto bad;
+				}
+				break;
 			default:
 				dprint(LOG_ERR, FNAME,
 				    "%s:%d invalid auth info parameter for %s",
@@ -1030,9 +1042,15 @@ configure_authinfo(authlist)
 			}
 			break;
 		case DHCP6_AUTHPROTO_SEDHCPV6:
-			if (ainfo->pubkey_file == NULL) {
-				dprint(LOG_ERR, FNAME, "no public key file "
-				       "for Secure DHCPv6");
+			if (!ainfo->pubkey_file && !ainfo->cert_file) {
+				dprint(LOG_ERR, FNAME, "no public key or "
+				       "certificate file for Secure DHCPv6");
+				goto bad;
+			}
+			if (ainfo->pubkey_file && ainfo->cert_file) {
+				dprint(LOG_ERR, FNAME, "both public key and "
+				       "certificate file specified for "
+				       "Secure DHCPv6");
 				goto bad;
 			}
 			if (ainfo->privkey_file == NULL) {
@@ -1049,11 +1067,19 @@ configure_authinfo(authlist)
 			}
 			if (ainfo->hash_algorithm == DHCP6_HASHALG_UNDEF)
 				ainfo->hash_algorithm = DHCP6_HASHALG_SHA256;
-			if (dhcp6_read_pubkey(ainfo->sig_algorithm,
+			if (ainfo->pubkey_file &&
+			    dhcp6_read_pubkey(ainfo->sig_algorithm,
 					      ainfo->pubkey_file,
 					      &ainfo->pubkey)) {
 				dprint(LOG_ERR, FNAME, "failed to configure "
 				       "public key: %s", ainfo->pubkey_file);
+				goto bad;
+			}
+			if (ainfo->cert_file &&
+			    dhcp6_read_certificate(ainfo->cert_file,
+						   &ainfo->certificate)) {
+				dprint(LOG_ERR, FNAME, "failed to configure "
+				       "certificate: %s", ainfo->cert_file);
 				goto bad;
 			}
 			if (dhcp6_read_privkey(ainfo->sig_algorithm,
@@ -1642,6 +1668,8 @@ clear_authinfo(alist)
 		free(auth->name);
 		free(auth->pubkey_file);
 		dhcp6_free_pubkey(&auth->pubkey);
+		free(auth->certificate);
+		dhcp6_free_certificate(&auth->certificate);
 		free(auth->privkey_file);
 		dhcp6_free_privkey(auth->sig_algorithm, &auth->pubkey);
 		free(auth);
@@ -1667,6 +1695,12 @@ create_authparam(struct authinfo *ainfo) {
 			if (!authparam->sedhcpv6.public_key)
 				goto fail;
 		}
+		if (ainfo->certificate) {
+			authparam->sedhcpv6.certificate =
+				dhcp6_copy_certificate(ainfo->certificate);
+			if (!authparam->sedhcpv6.certificate)
+				goto fail;
+		}
 		authparam->sedhcpv6.private_key =
 			dhcp6_copy_privkey(ainfo->sig_algorithm,
 					   ainfo->privkey);
@@ -1686,6 +1720,8 @@ create_authparam(struct authinfo *ainfo) {
 	assert(authparam->authproto == DHCP6_AUTHPROTO_SEDHCPV6);
 	if (authparam->sedhcpv6.public_key)
 		dhcp6_free_pubkey(&authparam->sedhcpv6.public_key);
+	if (authparam->sedhcpv6.certificate)
+		dhcp6_free_pubkey(&authparam->sedhcpv6.certificate);
 	if (authparam->sedhcpv6.private_key)
 		dhcp6_free_privkey(ainfo->sig_algorithm,
 				   &authparam->sedhcpv6.public_key);

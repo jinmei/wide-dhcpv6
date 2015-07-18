@@ -71,6 +71,7 @@ struct authparam {
 			int hash_algorithm;
 			int sig_algorithm;
 			void *public_key; /* deep copy, need explicit free */
+			void *certificate; /* ditto */
 			void *private_key; /* opaque private key value */
 		} sedhcpv6;
 	};
@@ -257,6 +258,8 @@ struct authinfo {
 	void *pubkey; /* alg/implementation-dependent blob for public key */
 	char *privkey_file;	/* PEM file for private key */
 	void *privkey; /* alg/implementation-dependent blob for private key */
+	char *cert_file;	/* PEM file for certificate */
+	void *certificate;
 };
 
 /* structures and definitions used in the config file parser */
@@ -295,7 +298,7 @@ enum { DECL_SEND, DECL_ALLOW, DECL_INFO_ONLY, DECL_REQUEST, DECL_DUID,
        IACONF_PIF, IACONF_PREFIX, IACONF_ADDR,
        DHCPOPT_SIP, DHCPOPT_SIPNAME,
        AUTHPARAM_PROTO, AUTHPARAM_ALG, AUTHPARAM_RDM, AUTHPARAM_KEY,
-       AUTHPARAM_PUBKEYFILE, AUTHPARAM_PRIVKEYFILE,
+       AUTHPARAM_PUBKEYFILE, AUTHPARAM_PRIVKEYFILE, AUTHPARAM_CERTFILE,
        KEYPARAM_REALM, KEYPARAM_KEYID, KEYPARAM_SECRET, KEYPARAM_EXPIRE };
 
 typedef enum {DHCP6_MODE_SERVER, DHCP6_MODE_CLIENT, DHCP6_MODE_RELAY }

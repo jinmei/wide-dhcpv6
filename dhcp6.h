@@ -232,6 +232,7 @@ struct dhcp6_optinfo {
 			int sig_hash_algorithm;
 			size_t sig_len;
 			struct dhcp6_vbuf pubkey;
+			struct dhcp6_vbuf certificate;
 			size_t offset; /* offset to the Signature field */
 		} aiu_sedhcpv6;
 	} authinfo;
@@ -243,6 +244,7 @@ struct dhcp6_optinfo {
 #define reconfigauth_offset authinfo.aiu_reconfig.offset
 #define reconfigauth_val authinfo.aiu_reconfig.val
 #define sedhcpv6_pubkey authinfo.aiu_sedhcpv6.pubkey
+#define sedhcpv6_certificate authinfo.aiu_sedhcpv6.certificate
 #define sedhcpv6_sig_algorithm authinfo.aiu_sedhcpv6.sig_algorithm
 #define sedhcpv6_sig_hash_algorithm authinfo.aiu_sedhcpv6.sig_hash_algorithm
 #define sedhcpv6_sig_len authinfo.aiu_sedhcpv6.sig_len
@@ -409,6 +411,13 @@ struct dhcp6opt_auth {
 struct dhcp6opt_public_key {
 	u_int16_t dh6_pubkey_type;
 	u_int16_t dh6_pubkey_len;
+	/* public-key data follows */
+} __attribute__ ((__packed__));
+
+/* Certificate */
+struct dhcp6opt_certificate {
+	u_int16_t dh6_cert_type;
+	u_int16_t dh6_cert_len;
 	/* public-key data follows */
 } __attribute__ ((__packed__));
 

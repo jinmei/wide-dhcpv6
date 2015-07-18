@@ -612,6 +612,12 @@ copy_authparam(param)
 			if (!dst->sedhcpv6.public_key)
 				goto fail;
 		}
+		if (param->sedhcpv6.certificate) {
+			dst->sedhcpv6.certificate =
+				dhcp6_copy_certificate(param->sedhcpv6.certificate);
+			if (!dst->sedhcpv6.certificate)
+				goto fail;
+		}
 		dst->sedhcpv6.private_key =
 			dhcp6_copy_privkey(param->sedhcpv6.sig_algorithm,
 					   param->sedhcpv6.private_key);
@@ -625,6 +631,8 @@ copy_authparam(param)
   fail:
 	if (dst->sedhcpv6.public_key)
 		dhcp6_free_pubkey(&dst->sedhcpv6.public_key);
+	if (dst->sedhcpv6.certificate)
+		dhcp6_free_certificate(&dst->sedhcpv6.certificate);
 	if (dst->sedhcpv6.private_key) {
 		dhcp6_free_privkey(dst->sedhcpv6.sig_algorithm,
 				   &dst->sedhcpv6.private_key);
@@ -641,6 +649,8 @@ free_authparam(authparamp)
 	if (authparam->authproto == DHCP6_AUTHPROTO_SEDHCPV6) {
 		if (authparam->sedhcpv6.public_key)
 			dhcp6_free_pubkey(&authparam->sedhcpv6.public_key);
+		if (authparam->sedhcpv6.certificate)
+			dhcp6_free_certificate(&authparam->sedhcpv6.certificate);
 		if (authparam->sedhcpv6.private_key) {
 			dhcp6_free_privkey(authparam->sedhcpv6.sig_algorithm,
 					   &authparam->sedhcpv6.private_key);
@@ -1541,6 +1551,8 @@ sedhcpv6_option_check(struct dhcp6_optinfo *optinfo) {
 		optinfo->sedhcpv6_sig_offset = 0;
 		optinfo->sedhcpv6_pubkey.dv_len = 0;
 		optinfo->sedhcpv6_pubkey.dv_buf = NULL;
+		optinfo->sedhcpv6_certificate.dv_len = 0;
+		optinfo->sedhcpv6_certificate.dv_buf = NULL;
 	}
 	optinfo->authproto = DHCP6_AUTHPROTO_SEDHCPV6;
 	return (0);
@@ -2657,6 +2669,14 @@ dhcp6_set_options(type, optbp, optep, optinfo)
 			if (copy_option(DH6OPT_PUBLIC_KEY,
 					optinfo->sedhcpv6_pubkey.dv_len,
 					optinfo->sedhcpv6_pubkey.dv_buf,
+					&p, optep, &len) != 0) {
+				goto fail;
+			}
+		}
+		if (optinfo->sedhcpv6_certificate.dv_len > 0) {
+			if (copy_option(DH6OPT_CERTIFICATE,
+					optinfo->sedhcpv6_certificate.dv_len,
+					optinfo->sedhcpv6_certificate.dv_buf,
 					&p, optep, &len) != 0) {
 				goto fail;
 			}

@@ -79,11 +79,15 @@ extern int dhcp6_verify_mac __P((unsigned char *, ssize_t, int, int, size_t,
 int dhcp6_auth_init __P((void));
 int dhcp6_read_pubkey __P((int, const char *, void **));
 int dhcp6_read_privkey __P((int, const char *, void **));
+int dhcp6_read_certificate __P((const char *, void **));
 void dhcp6_free_pubkey __P((void **));
+void dhcp6_free_certificate __P((void **));
 void dhcp6_free_privkey __P((int, void **));
 
 void dhcp6_set_pubkey __P((void *, struct dhcp6_vbuf *));
+void dhcp6_set_certificate __P((void *, struct dhcp6_vbuf *));
 void *dhcp6_copy_pubkey __P((void *));
+void *dhcp6_copy_certificate __P((void *));
 void *dhcp6_copy_privkey __P((int, void *));
 size_t dhcp6_get_sigsize __P((int, void *));
 struct authparam;
