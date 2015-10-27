@@ -249,6 +249,7 @@ main(argc, argv)
 	TAILQ_INIT(&nisplist);
 	TAILQ_INIT(&nispnamelist);
 	TAILQ_INIT(&bcmcslist);
+	TAILQ_INIT(&dhcp4o6list);
 	TAILQ_INIT(&bcmcsnamelist);
 
 	srandom(time(NULL) & getpid());
@@ -1209,6 +1210,12 @@ set_statelessinfo(type, optinfo)
 	/* BCMCS server */
 	if (dhcp6_copy_list(&optinfo->bcmcs_list, &bcmcslist)) {
 		dprint(LOG_ERR, FNAME, "failed to copy BCMCS servers");
+		return (-1);
+	}
+
+	/* DHCP4o6 server */
+	if (dhcp6_copy_list(&optinfo->dhcp4o6_list, &dhcp4o6list)) {
+		dprint(LOG_ERR, FNAME, "failed to copy DHCP4o6 servers");
 		return (-1);
 	}
 

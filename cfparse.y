@@ -91,6 +91,7 @@ struct cf_list *cf_sip_list, *cf_sip_name_list;
 struct cf_list *cf_nis_list, *cf_nis_name_list;
 struct cf_list *cf_nisp_list, *cf_nisp_name_list;
 struct cf_list *cf_bcmcs_list, *cf_bcmcs_name_list;
+struct cf_list *cf_dhcp4o6_list;
 long long cf_refreshtime = -1;
 
 extern int yylex __P((void));
@@ -112,6 +113,7 @@ static void cleanup_cflist __P((struct cf_list *));
 %token NIS_SERVERS NIS_NAME
 %token NISP_SERVERS NISP_NAME
 %token BCMCS_SERVERS BCMCS_NAME
+%token DHCP4O6_SERVERS
 %token PUBLIC_KEY
 %token INFO_ONLY
 %token SCRIPT DELAYEDKEY
@@ -315,6 +317,15 @@ option_statement:
 			} else {
 				cf_bcmcs_name_list->tail->next = l;
 				cf_bcmcs_name_list->tail = l->tail;
+			}
+		}
+	|	OPTION DHCP4O6_SERVERS address_list EOS
+		{
+			if (cf_dhcp4o6_list == NULL)
+				cf_dhcp4o6_list = $3;
+			else {
+				cf_dhcp4o6_list->tail->next = $3;
+				cf_dhcp4o6_list->tail = $3->tail;
 			}
 		}
 	|	OPTION REFRESHTIME NUMBER EOS
@@ -750,6 +761,14 @@ dhcpoption:
 			struct cf_list *l;
 
 			MAKE_CFLIST(l, DHCPOPT_BCMCSNAME, NULL, NULL);
+			/* currently no value */
+			$$ = l;
+		}
+	|	DHCP4O6_SERVERS
+		{
+			struct cf_list *l;
+
+			MAKE_CFLIST(l, DHCPOPT_DHCP4O6, NULL, NULL);
 			/* currently no value */
 			$$ = l;
 		}
@@ -1301,6 +1320,8 @@ cleanup()
 	cf_bcmcs_list = NULL;
 	cleanup_cflist(cf_bcmcs_name_list);
 	cf_bcmcs_name_list = NULL;
+	cleanup_cflist(cf_dhcp4o6_list);
+	cf_dhcp4o6_list = NULL;
 }
 
 static void

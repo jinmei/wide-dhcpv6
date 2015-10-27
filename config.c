@@ -68,6 +68,7 @@ struct dhcp6_list siplist, sipnamelist, dnslist, dnsnamelist, ntplist;
 struct dhcp6_list nislist, nisnamelist;
 struct dhcp6_list nisplist, nispnamelist;
 struct dhcp6_list bcmcslist, bcmcsnamelist;
+struct dhcp6_list dhcp4o6list;
 long long optrefreshtime;
 
 static struct dhcp6_ifconf *dhcp6_ifconflist;
@@ -79,6 +80,7 @@ static struct dhcp6_list siplist0, sipnamelist0, dnslist0, dnsnamelist0, ntplist
 static struct dhcp6_list nislist0, nisnamelist0;
 static struct dhcp6_list nisplist0, nispnamelist0;
 static struct dhcp6_list bcmcslist0, bcmcsnamelist0;
+static struct dhcp6_list dhcp4o6list0;
 static long long optrefreshtime0 = -1;
 #ifndef DHCP6_DYNAMIC_HOSTCONF_MAX
 #define DHCP6_DYNAMIC_HOSTCONF_MAX	1024
@@ -120,6 +122,7 @@ extern struct cf_list *cf_sip_list, *cf_sip_name_list;
 extern struct cf_list *cf_nis_list, *cf_nis_name_list;
 extern struct cf_list *cf_nisp_list, *cf_nisp_name_list;
 extern struct cf_list *cf_bcmcs_list, *cf_bcmcs_name_list;
+extern struct cf_list *cf_dhcp4o6_list;
 extern long long cf_refreshtime;
 extern char *configfilename;
 
@@ -1151,6 +1154,10 @@ configure_global_option()
 	if (configure_domain(cf_bcmcs_name_list, &bcmcsnamelist0, "BCMCS") < 0)
 		goto bad;
 
+	/* DHCP4o6 Server address */
+	if (configure_addr(cf_dhcp4o6_list, &dhcp4o6list0, "DHCP4o6") < 0)
+		goto bad;
+
 	/* Lifetime for stateless options */
 	if (cf_refreshtime >= 0) {
 		optrefreshtime0 = cf_refreshtime;
@@ -1546,6 +1553,10 @@ configure_commit()
 	dhcp6_clear_list(&bcmcsnamelist);
 	dhcp6_move_list(&bcmcsnamelist, &bcmcsnamelist0);
 
+	/* commit DHCP4o6 server addresses */
+	dhcp6_clear_list(&dhcp4o6list);
+	dhcp6_move_list(&dhcp4o6list, &dhcp4o6list0);
+
 	/* commit information refresh time */
 	optrefreshtime = optrefreshtime0;
 	/* commit pool configuration */
@@ -1848,6 +1859,7 @@ add_options(opcode, ifc, cfl0)
 		case DHCPOPT_NISPNAME:
 		case DHCPOPT_BCMCS:
 		case DHCPOPT_BCMCSNAME:
+		case DHCPOPT_DHCP4O6:
 		case DHCPOPT_REFRESHTIME:
 			switch (cfl->type) {
 			case DHCPOPT_SIP:
@@ -1885,6 +1897,9 @@ add_options(opcode, ifc, cfl0)
 				break;
 			case DHCPOPT_REFRESHTIME:
 				opttype = DH6OPT_REFRESHTIME;
+				break;
+			case DHCPOPT_DHCP4O6:
+				opttype = DH6OPT_DHCP4O6_SERVERS;
 				break;
 			}
 			switch (opcode) {

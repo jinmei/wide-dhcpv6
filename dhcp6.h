@@ -200,6 +200,7 @@ struct dhcp6_optinfo {
 	struct dhcp6_list nispname_list; /* NIS+ domain list */
 	struct dhcp6_list bcmcs_list; /* BCMC server list */
 	struct dhcp6_list bcmcsname_list; /* BCMC domain list */
+	struct dhcp6_list dhcp4o6_list; /* DHCP 4o6 server list */
 
 	struct dhcp6_vbuf relay_msg; /* relay message */
 #define relaymsg_len relay_msg.dv_len
@@ -333,6 +334,7 @@ struct dhcp6_relay {
 #define DH6OPT_REMOTE_ID 37
 #define DH6OPT_SUBSCRIBER_ID 38
 #define DH6OPT_CLIENT_FQDN 39
+#define DH6OPT_DHCP4O6_SERVERS 88
 
 /* secure DHCPv6 (draft-ietf-dhc-sedhcpv6-08) to be compatible with KEA */
 #define DH6OPT_PUBLIC_KEY 701

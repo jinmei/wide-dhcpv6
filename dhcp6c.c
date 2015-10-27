@@ -1842,6 +1842,17 @@ client6_recvreply(ifp, dh6, len, optinfo)
 		}
 	}
 
+	if (!TAILQ_EMPTY(&optinfo->dhcp4o6_list)) {
+		struct dhcp6_listval *d;
+		int i = 0;
+
+		for (d = TAILQ_FIRST(&optinfo->dhcp4o6_list); d;
+		     d = TAILQ_NEXT(d, link), i++) {
+			info_printf("DHCP4o6 server[%d] %s",
+			    i, in6addr2str(&d->val_addr6, 0));
+		}
+	}
+
 	/*
 	 * Call the configuration script, if specified, to handle various
 	 * configuration parameters.

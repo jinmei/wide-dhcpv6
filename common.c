@@ -1384,6 +1384,7 @@ dhcp6_init_options(optinfo)
 	TAILQ_INIT(&optinfo->nispname_list);
 	TAILQ_INIT(&optinfo->bcmcs_list);
 	TAILQ_INIT(&optinfo->bcmcsname_list);
+	TAILQ_INIT(&optinfo->dhcp4o6_list);
 
 	optinfo->authproto = DHCP6_AUTHPROTO_UNDEF;
 	optinfo->authalgorithm = DHCP6_AUTHALG_UNDEF;
@@ -1423,6 +1424,7 @@ dhcp6_clear_options(optinfo)
 	dhcp6_clear_list(&optinfo->nispname_list);
 	dhcp6_clear_list(&optinfo->bcmcs_list);
 	dhcp6_clear_list(&optinfo->bcmcsname_list);
+	dhcp6_clear_list(&optinfo->dhcp4o6_list);
 
 	if (optinfo->relaymsg_msg != NULL)
 		free(optinfo->relaymsg_msg);
@@ -1476,6 +1478,8 @@ dhcp6_copy_options(dst, src)
 	if (dhcp6_copy_list(&dst->bcmcs_list, &src->bcmcs_list))
 		goto fail;
 	if (dhcp6_copy_list(&dst->bcmcsname_list, &src->bcmcsname_list))
+		goto fail;
+	if (dhcp6_copy_list(&dst->dhcp4o6_list, &src->dhcp4o6_list))
 		goto fail;
 	dst->elapsed_time = src->elapsed_time;
 	dst->refreshtime = src->refreshtime;
@@ -1910,6 +1914,12 @@ dhcp6_get_options(p, ep, optinfo)
 		case DH6OPT_BCMCS_SERVER_A:
 			if (dhcp6_get_addr(optlen, cp, opt,
 			    &optinfo->bcmcs_list) == -1)
+				goto fail;
+			break;
+		case DH6OPT_DHCP4O6_SERVERS:
+			/* XXX: should handle optlen == 0 case */
+			if (dhcp6_get_addr(optlen, cp, opt,
+			    &optinfo->dhcp4o6_list) == -1)
 				goto fail;
 			break;
 		case DH6OPT_NTP:
@@ -2606,6 +2616,11 @@ dhcp6_set_options(type, optbp, optep, optinfo)
 	    &p, optep, &len) != 0)
 		goto fail;
 
+	/* XXX: should cover the empty-list case */
+	if (dhcp6_set_addr(DH6OPT_DHCP4O6_SERVERS, &optinfo->dhcp4o6_list,
+	    &p, optep, &len) != 0)
+		goto fail;
+
 	for (op = TAILQ_FIRST(&optinfo->iapd_list); op;
 	    op = TAILQ_NEXT(op, link)) {
 		int optlen;
@@ -3289,6 +3304,8 @@ dhcp6optstr(type)
 		return ("subscriber ID");
 	case DH6OPT_CLIENT_FQDN:
 		return ("client FQDN");
+	case DH6OPT_DHCP4O6_SERVERS:
+		return ("DHCP4o6 servers");
 	case DH6OPT_PUBLIC_KEY:
 		return ("public key");
 	case DH6OPT_CERTIFICATE:

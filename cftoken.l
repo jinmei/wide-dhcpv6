@@ -206,6 +206,7 @@ ecl		\}
 <S_CNF>nisp-domain-name { DECHO; return (NISP_NAME); }
 <S_CNF>bcmcs-server-address { DECHO; return (BCMCS_SERVERS); }
 <S_CNF>bcmcs-server-domain-name { DECHO; return (BCMCS_NAME); }
+<S_CNF>dhcp4o6-server-address { DECHO; return (DHCP4O6_SERVERS); }
 <S_CNF>refreshtime { DECHO; return (REFRESHTIME); }
 
 	/* provided for a backward compatibility to WIDE-DHCPv6 before Oct 1 2006 */
