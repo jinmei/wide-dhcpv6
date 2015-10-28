@@ -97,7 +97,7 @@ char *ctlport = DEFAULT_CLIENT_CONTROL_PORT;
 #define DEFAULT_KEYFILE SYSCONFDIR "/dhcp6cctlkey"
 #define CTLSKEW 300
 
-static struct sockaddr_un peer;
+static struct sockaddr_un dhcp4o6_peer;
 static char *dhcp4o6_sockfile = NULL;
 static int dhcp4o6_sock = -1;
 
@@ -140,6 +140,7 @@ static int client6_recvadvert __P((struct dhcp6_if *, struct dhcp6 *,
 				   ssize_t, struct dhcp6_optinfo *));
 static int client6_recvreply __P((struct dhcp6_if *, struct dhcp6 *,
 				  ssize_t, struct dhcp6_optinfo *));
+static void client6_recv4o6resp __P((struct dhcp6_optinfo *));
 static void dhcp4o6_recv __P((void));
 static void client6_signal __P((int));
 static struct dhcp6_event *find_event_withid __P((struct dhcp6_if *,
@@ -1530,6 +1531,9 @@ client6_recv()
 	case DH6_REPLY:
 		(void)client6_recvreply(ifp, dh6, len, &optinfo);
 		break;
+	case DH6_4O6_RESP:
+		client6_recv4o6resp(&optinfo);
+		break;
 	default:
 		dprint(LOG_INFO, FNAME, "received an unexpected message (%s) "
 		    "from %s", dhcp6msgstr(dh6->dh6_msgtype),
@@ -1988,6 +1992,41 @@ client6_recvreply(ifp, dh6, len, optinfo)
 }
 
 static void
+client6_recv4o6resp(optinfo)
+	struct dhcp6_optinfo *optinfo;
+{
+	int cc;
+
+	if (optinfo->dhcp4msg_len == 0) {
+		dprint(LOG_INFO, FNAME,
+		       "DHCPv4-response message without DHCPv4 message");
+		return;
+	}
+	if (dhcp4o6_sock == -1) {
+		dprint(LOG_INFO, FNAME,
+		       "DHCPv4-response received but no DHCP4o6 socket");
+		return;
+	}
+	if (dhcp4o6_peer.sun_family != AF_UNIX) {
+		dprint(LOG_INFO, FNAME,
+		       "DHCPv4-response received but no DHCP4o6 peer known");
+		return;
+	}
+	cc = sendto(dhcp4o6_sock, optinfo->dhcp4msg_msg, optinfo->dhcp4msg_len,
+		    0, (const struct sockaddr *)&dhcp4o6_peer,
+		    sizeof(dhcp4o6_peer));
+	if (cc < 0) {
+		dprint(LOG_ERR, FNAME,
+		       "Failed to forward DHCPv4-response back to DHCP4o6 peer"
+		       ": %s", strerror(errno));
+		return;
+	}
+
+	dprint(LOG_INFO, FNAME,
+	       "Forwarded DHCPv4-response back to DHCP4o6 peer (%d bytes)", cc);
+}
+
+static void
 dhcp4o6_recv()
 {
 	struct in_addr dst4;
@@ -2009,8 +2048,8 @@ dhcp4o6_recv()
 	iov[1].iov_base = buf;
 	iov[1].iov_len = sizeof(buf);
 	memset(&mh, 0, sizeof(mh));
-	mh.msg_name = &peer;
-	mh.msg_namelen = sizeof(peer);
+	mh.msg_name = &dhcp4o6_peer;
+	mh.msg_namelen = sizeof(dhcp4o6_peer);
 	mh.msg_iov = iov;
 	mh.msg_iovlen = 2;
 	if ((cc = recvmsg(dhcp4o6_sock, &mh, 0)) < 0) {
