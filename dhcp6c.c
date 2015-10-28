@@ -30,6 +30,7 @@
 #include <sys/types.h>
 #include <sys/param.h>
 #include <sys/socket.h>
+#include <sys/un.h>
 #include <sys/uio.h>
 #include <sys/queue.h>
 #include <errno.h>
@@ -96,6 +97,9 @@ char *ctlport = DEFAULT_CLIENT_CONTROL_PORT;
 #define DEFAULT_KEYFILE SYSCONFDIR "/dhcp6cctlkey"
 #define CTLSKEW 300
 
+static char *dhcp4o6_sockfile = NULL;
+static int dhcp4o6_sock = -1;
+
 static char *conffile = DHCP6C_CONF;
 
 static const struct sockaddr_in6 *sa6_allagent;
@@ -133,6 +137,7 @@ static int client6_recvadvert __P((struct dhcp6_if *, struct dhcp6 *,
 				   ssize_t, struct dhcp6_optinfo *));
 static int client6_recvreply __P((struct dhcp6_if *, struct dhcp6 *,
 				  ssize_t, struct dhcp6_optinfo *));
+static void dhcp4o6_recv __P((void));
 static void client6_signal __P((int));
 static struct dhcp6_event *find_event_withid __P((struct dhcp6_if *,
 						  u_int32_t));
@@ -175,8 +180,11 @@ main(argc, argv)
 	else
 		progname++;
 
-	while ((ch = getopt(argc, argv, "c:dDfik:p:")) != -1) {
+	while ((ch = getopt(argc, argv, "4:c:dDfik:p:")) != -1) {
 		switch (ch) {
+		case '4':
+			dhcp4o6_sockfile = optarg;
+			break;
 		case 'c':
 			conffile = optarg;
 			break;
@@ -260,7 +268,7 @@ static void
 usage()
 {
 
-	fprintf(stderr, "usage: dhcp6c [-c configfile] [-dDfi] "
+	fprintf(stderr, "usage: dhcp6c [-4 sockfile] [-c configfile] [-dDfi] "
 	    "[-p pid-file] interface [interfaces...]\n");
 }
 
@@ -391,6 +399,34 @@ client6_init()
 		dprint(LOG_WARNING, FNAME, "failed to set signal: %s",
 		    strerror(errno));
 		exit(1);
+	}
+
+	/* set up DHCP4o6 socket file for DHCPv4 clients */
+	if (dhcp4o6_sockfile != NULL) {
+		struct sockaddr_un sun_4o6;
+		memset(&sun_4o6, 0, sizeof(sun_4o6));
+		sun_4o6.sun_family = AF_UNIX;
+		sun_4o6.sun_len = sizeof(sun_4o6);
+		if (strlen(dhcp4o6_sockfile) + 1 > sizeof(sun_4o6.sun_path))
+		{
+			dprint(LOG_ERR, FNAME, "socket file too long: %s",
+			       dhcp4o6_sockfile);
+			exit(1);
+		}
+		strncpy(sun_4o6.sun_path, dhcp4o6_sockfile,
+			sizeof(sun_4o6.sun_path));
+		if ((dhcp4o6_sock = socket(AF_UNIX, SOCK_DGRAM, 0)) < 0) {
+			dprint(LOG_ERR, FNAME, "open a DHCP4o6 socket: %s",
+			       strerror(errno));
+			exit(1);
+		}
+		unlink(dhcp4o6_sockfile);
+		if (bind(dhcp4o6_sock, (const struct sockaddr *)&sun_4o6,
+			 sizeof(sun_4o6)) < 0)
+		{
+			dprint(LOG_ERR, FNAME, "bind: %s", strerror(errno));
+			exit(1);
+		}
 	}
 }
 
@@ -536,9 +572,12 @@ client6_mainloop()
 		FD_ZERO(&r);
 		FD_SET(sock, &r);
 		maxsock = sock;
+		if (dhcp4o6_sock != -1)
+			FD_SET(dhcp4o6_sock, &r);
+		maxsock = sock > dhcp4o6_sock ? sock : dhcp4o6_sock;
 		if (ctlsock >= 0) {
 			FD_SET(ctlsock, &r);
-			maxsock = (sock > ctlsock) ? sock : ctlsock;
+			maxsock = (maxsock > ctlsock) ? maxsock : ctlsock;
 			(void)dhcp6_ctl_setreadfds(&r, &maxsock);
 		}
 
@@ -559,6 +598,8 @@ client6_mainloop()
 		}
 		if (FD_ISSET(sock, &r))
 			client6_recv();
+		if (dhcp4o6_sock != -1 && FD_ISSET(dhcp4o6_sock, &r))
+			dhcp4o6_recv();
 		if (ctlsock >= 0) {
 			if (FD_ISSET(ctlsock, &r)) {
 				(void)dhcp6_ctl_acceptcommand(ctlsock,
@@ -1936,6 +1977,50 @@ client6_recvreply(ifp, dh6, len, optinfo)
 		check_exit();
 	}
 	return (0);
+}
+
+static void
+dhcp4o6_recv()
+{
+	static struct sockaddr_un peer;
+	struct in_addr to4;
+	unsigned char buf[BUFSIZ];
+	int cc;
+	struct iovec iov[2];
+	struct msghdr mh;
+	struct dhcp4_header *hdr;
+	const unsigned char dhcp4_cookie[4] = { 99, 130, 83, 99 };
+
+	iov[0].iov_base = &to4;
+	iov[0].iov_len = sizeof(to4);
+	iov[1].iov_base = buf;
+	iov[1].iov_len = sizeof(buf);
+	memset(&mh, 0, sizeof(mh));
+	mh.msg_name = &peer;
+	mh.msg_namelen = sizeof(peer);
+	mh.msg_iov = iov;
+	mh.msg_iovlen = 2;
+	if ((cc = recvmsg(dhcp4o6_sock, &mh, 0)) < 0) {
+		dprint(LOG_ERR, FNAME, "recvmsg: %s", strerror(errno));
+		return;
+	}
+	/*
+	 * Perform minimal validation.  Other than this we treat it as opaque
+	 * data, letting the server validate the entire message.
+	 */
+	if ((size_t)cc < sizeof(to4) + sizeof(*hdr) + sizeof(dhcp4_cookie)) {
+		dprint(LOG_INFO, FNAME, "short packet from DHCP4o6 socket");
+		return;
+	}
+	if (memcmp(&buf[sizeof(*hdr)], &dhcp4_cookie,
+		   sizeof(dhcp4_cookie)) != 0) {
+		dprint(LOG_INFO, FNAME, "invalid DHCP cookie");
+		return;
+	}
+
+	dprint(LOG_DEBUG, FNAME,
+	       "received DHCPv4 message from DHCP4o6 socket (to %s)",
+	       inet_ntoa(to4));
 }
 
 static struct dhcp6_event *

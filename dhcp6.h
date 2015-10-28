@@ -441,6 +441,24 @@ struct dhcp6opt_timestamp {
 	/* signature data follows */
 } __attribute__ ((__packed__));
 
+/* BOOTP header for DHCPv4 messages, used for DHCP4o6 */
+struct dhcp4_header {
+	u_int8_t  op;
+	u_int8_t  htype;
+	u_int8_t  hlen;
+	u_int8_t  hops;
+	u_int32_t xid;
+	u_int16_t secs;
+	u_int16_t flags;
+	struct in_addr ciaddr;
+	struct in_addr yiaddr;
+	struct in_addr siaddr;
+	struct in_addr giaddr;
+	unsigned char chaddr [16];
+	char sname [64];
+	char file [128];
+} __attribute__ ((__packed__));
+
 enum { DHCP6_AUTHPROTO_UNDEF = -1, /* placeholder */
        /* 0-255 are protocol defined numbers for Authentication option */
        DHCP6_AUTHPROTO_DELAYED = 2, DHCP6_AUTHPROTO_RECONFIG = 3,
