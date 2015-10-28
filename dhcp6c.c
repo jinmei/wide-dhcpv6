@@ -97,6 +97,7 @@ char *ctlport = DEFAULT_CLIENT_CONTROL_PORT;
 #define DEFAULT_KEYFILE SYSCONFDIR "/dhcp6cctlkey"
 #define CTLSKEW 300
 
+static struct sockaddr_un peer;
 static char *dhcp4o6_sockfile = NULL;
 static int dhcp4o6_sock = -1;
 
@@ -112,6 +113,8 @@ static int ctldigestlen;
 
 static int infreq_mode = 0;
 
+static struct dhcp6_list dhcp4o6_servers;
+static struct dhcp6_if *dhcp4o6_if;
 static struct dhcp6_auth_peerlist client_auth_peers;
 
 static inline int get_val32 __P((unsigned char **, unsigned int *,
@@ -174,6 +177,7 @@ main(argc, argv)
 #endif
 
 	TAILQ_INIT(&client_auth_peers);
+	TAILQ_INIT(&dhcp4o6_servers);
 
 	if ((progname = strrchr(*argv, '/')) == NULL)
 		progname = *argv;
@@ -1883,6 +1887,7 @@ client6_recvreply(ifp, dh6, len, optinfo)
 		}
 	}
 
+	/* Remember the latest DHCP4o6 servers */
 	if (!TAILQ_EMPTY(&optinfo->dhcp4o6_list)) {
 		struct dhcp6_listval *d;
 		int i = 0;
@@ -1892,6 +1897,9 @@ client6_recvreply(ifp, dh6, len, optinfo)
 			info_printf("DHCP4o6 server[%d] %s",
 			    i, in6addr2str(&d->val_addr6, 0));
 		}
+		dhcp4o6_if = ifp;
+		dhcp6_clear_list(&dhcp4o6_servers);
+		dhcp6_copy_list(&dhcp4o6_servers, &optinfo->dhcp4o6_list);
 	}
 
 	/*
@@ -1982,17 +1990,22 @@ client6_recvreply(ifp, dh6, len, optinfo)
 static void
 dhcp4o6_recv()
 {
-	static struct sockaddr_un peer;
-	struct in_addr to4;
+	struct in_addr dst4;
+	struct sockaddr_in6 dst6;
 	unsigned char buf[BUFSIZ];
+	unsigned char sendbuf[BUFSIZ];
 	int cc;
 	struct iovec iov[2];
 	struct msghdr mh;
 	struct dhcp4_header *hdr;
-	const unsigned char dhcp4_cookie[4] = { 99, 130, 83, 99 };
+	const unsigned char dhcp4_cookie[4] = { 99, 130, 83, 99 }; /* RFC2131 */
+	struct dhcp6_listval *v;
+	struct dhcp6_4o6 *dh6_4o6hdr;
+	struct dhcp6_optinfo optinfo;
+	ssize_t optlen;
 
-	iov[0].iov_base = &to4;
-	iov[0].iov_len = sizeof(to4);
+	iov[0].iov_base = &dst4;
+	iov[0].iov_len = sizeof(dst4);
 	iov[1].iov_base = buf;
 	iov[1].iov_len = sizeof(buf);
 	memset(&mh, 0, sizeof(mh));
@@ -2008,7 +2021,7 @@ dhcp4o6_recv()
 	 * Perform minimal validation.  Other than this we treat it as opaque
 	 * data, letting the server validate the entire message.
 	 */
-	if ((size_t)cc < sizeof(to4) + sizeof(*hdr) + sizeof(dhcp4_cookie)) {
+	if ((size_t)cc < sizeof(dst4) + sizeof(*hdr) + sizeof(dhcp4_cookie)) {
 		dprint(LOG_INFO, FNAME, "short packet from DHCP4o6 socket");
 		return;
 	}
@@ -2020,7 +2033,47 @@ dhcp4o6_recv()
 
 	dprint(LOG_DEBUG, FNAME,
 	       "received DHCPv4 message from DHCP4o6 socket (to %s)",
-	       inet_ntoa(to4));
+	       inet_ntoa(dst4));
+
+	if (dhcp4o6_if == NULL || TAILQ_EMPTY(&dhcp4o6_servers)) {
+		dprint(LOG_INFO, FNAME,
+		       "received DHCP4o6 packet but no server is available");
+		return;
+	}
+
+	/* Build DHCP4o6 query message */
+	dh6_4o6hdr = (struct dhcp6_4o6 *)sendbuf;
+	dh6_4o6hdr->dh4o6_msgtype = DH6_4O6_QUERY;
+	dh6_4o6hdr->dh4o6_flags &= ~ntohl(DH4O6_FLAGMASK);
+	if (dst4.s_addr != INADDR_BROADCAST)
+		dh6_4o6hdr->dh4o6_flags |= ~ntohl(DH4O6_FLAG_UNICAST);
+
+	dhcp6_init_options(&optinfo);
+	optinfo.dhcp4msg_len = cc - sizeof(dst4);
+	optinfo.dhcp4msg_msg = (char *)buf;
+	if ((optlen = dhcp6_set_options(dh6_4o6hdr->dh4o6_msgtype,
+					(struct dhcp6opt *)(dh6_4o6hdr + 1),
+					(struct dhcp6opt *)(sendbuf +
+							    sizeof(sendbuf)),
+					&optinfo)) < 0)
+	{
+		dprint(LOG_ERR, FNAME, "failed to construct options");
+		return;
+	}
+
+	for (v = TAILQ_FIRST(&dhcp4o6_servers); v; v = TAILQ_NEXT(v, link)) {
+		dst6 = *sa6_allagent;
+		memcpy(&dst6.sin6_addr, &v->val_addr6, sizeof(dst6.sin6_addr));
+		if (sendto(sock, sendbuf, sizeof(*dh6_4o6hdr) + optlen, 0,
+			   (const struct sockaddr *)&dst6, sizeof(dst6)) < 0) {
+			dprint(LOG_ERR, FNAME, "sendto: %s", strerror(errno));
+			/* try other servers anyway */
+		}
+	}
+
+	dprint(LOG_DEBUG, FNAME, "send %s to %s",
+	       dhcp6msgstr(dh6_4o6hdr->dh4o6_msgtype),
+	       addr2str((struct sockaddr *)&dst6));
 }
 
 static struct dhcp6_event *

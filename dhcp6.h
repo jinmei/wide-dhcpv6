@@ -77,6 +77,8 @@ typedef uint64_t u_int64_t;
 #define DH6_INFORM_REQ	11
 #define DH6_RELAY_FORW	12
 #define DH6_RELAY_REPLY	13
+#define DH6_4O6_QUERY	20
+#define DH6_4O6_RESP	21
 
 /* Predefined addresses */
 #define DH6ADDR_ALLAGENT	"ff02::1:2"
@@ -206,6 +208,10 @@ struct dhcp6_optinfo {
 #define relaymsg_len relay_msg.dv_len
 #define relaymsg_msg relay_msg.dv_buf
 
+	struct dhcp6_vbuf dhcp4_msg; /* DHCPv4 message */
+#define dhcp4msg_len dhcp4_msg.dv_len
+#define dhcp4msg_msg dhcp4_msg.dv_buf
+
 	struct dhcp6_vbuf ifidopt; /* Interface-id */
 #define ifidopt_len ifidopt.dv_len
 #define ifidopt_id ifidopt.dv_buf
@@ -275,6 +281,19 @@ struct dhcp6_relay {
 	/* options follow */
 } __attribute__ ((__packed__));
 
+/* DHCP4o6 messages */
+struct dhcp6_4o6 {
+	union {
+		u_int8_t m;
+		u_int32_t f;
+	} dh6_msgtypeflg;
+	/* options follow */
+};
+#define dh4o6_msgtype	dh6_msgtypeflg.m
+#define dh4o6_flags	dh6_msgtypeflg.f
+#define DH4O6_FLAGMASK	0x00ffffff
+#define DH4O6_FLAG_UNICAST 0x700000
+
 /* options */
 #define DH6OPT_CLIENTID	1
 #define DH6OPT_SERVERID	2
@@ -334,7 +353,8 @@ struct dhcp6_relay {
 #define DH6OPT_REMOTE_ID 37
 #define DH6OPT_SUBSCRIBER_ID 38
 #define DH6OPT_CLIENT_FQDN 39
-#define DH6OPT_DHCP4O6_SERVERS 88
+#define DH6OPT_DHCP4_MSG 87	/* RFC7341 */
+#define DH6OPT_DHCP4O6_SERVERS 88 /* RFC7341 */
 
 /* secure DHCPv6 (draft-ietf-dhc-sedhcpv6-08) to be compatible with KEA */
 #define DH6OPT_PUBLIC_KEY 701

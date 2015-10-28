@@ -1429,6 +1429,9 @@ dhcp6_clear_options(optinfo)
 	if (optinfo->relaymsg_msg != NULL)
 		free(optinfo->relaymsg_msg);
 
+	if (optinfo->dhcp4msg_msg != NULL)
+		free(optinfo->dhcp4msg_msg);
+
 	if (optinfo->ifidopt_id != NULL)
 		free(optinfo->ifidopt_id);
 
@@ -1491,6 +1494,14 @@ dhcp6_copy_options(dst, src)
 		dst->relaymsg_len = src->relaymsg_len;
 		memcpy(dst->relaymsg_msg, src->relaymsg_msg,
 		    src->relaymsg_len);
+	}
+
+	if (src->dhcp4msg_msg != NULL) {
+		if ((dst->dhcp4msg_msg = malloc(src->dhcp4msg_len)) == NULL)
+			goto fail;
+		dst->dhcp4msg_len = src->dhcp4msg_len;
+		memcpy(dst->dhcp4msg_msg, src->dhcp4msg_msg,
+		    src->dhcp4msg_len);
 	}
 
 	if (src->ifidopt_id != NULL) {
@@ -1921,6 +1932,12 @@ dhcp6_get_options(p, ep, optinfo)
 			if (dhcp6_get_addr(optlen, cp, opt,
 			    &optinfo->dhcp4o6_list) == -1)
 				goto fail;
+			break;
+		case DH6OPT_DHCP4_MSG:
+			if ((optinfo->dhcp4msg_msg = malloc(optlen)) == NULL)
+				goto fail;
+			memcpy(optinfo->dhcp4msg_msg, cp, optlen);
+			optinfo->dhcp4msg_len = optlen;
 			break;
 		case DH6OPT_NTP:
 			if (dhcp6_get_addr(optlen, cp, opt,
@@ -2659,6 +2676,13 @@ dhcp6_set_options(type, optbp, optep, optinfo)
 		}
 	}
 
+	if (optinfo->dhcp4msg_len) {
+		if (copy_option(DH6OPT_DHCP4_MSG, optinfo->dhcp4msg_len,
+		    optinfo->dhcp4msg_msg, &p, optep, &len) != 0) {
+			goto fail;
+		}
+	}
+
 	if (optinfo->ifidopt_id) {
 		if (copy_option(DH6OPT_INTERFACE_ID, optinfo->ifidopt_len,
 		    optinfo->ifidopt_id, &p, optep, &len) != 0) {
@@ -3304,6 +3328,8 @@ dhcp6optstr(type)
 		return ("subscriber ID");
 	case DH6OPT_CLIENT_FQDN:
 		return ("client FQDN");
+	case DH6OPT_DHCP4_MSG:
+		return ("DHCPv4 message");
 	case DH6OPT_DHCP4O6_SERVERS:
 		return ("DHCP4o6 servers");
 	case DH6OPT_PUBLIC_KEY:
@@ -3356,6 +3382,10 @@ dhcp6msgstr(type)
 		return ("relay-forward");
 	case DH6_RELAY_REPLY:
 		return ("relay-reply");
+	case DH6_4O6_QUERY:
+		return ("DHCPv4-query");
+	case DH6_4O6_RESP:
+		return ("DHCPv4-response");
 	default:
 		snprintf(genstr, sizeof(genstr), "msg%d", type);
 		return (genstr);
