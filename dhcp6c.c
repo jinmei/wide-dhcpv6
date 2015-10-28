@@ -2067,13 +2067,13 @@ dhcp4o6_recv()
 		if (sendto(sock, sendbuf, sizeof(*dh6_4o6hdr) + optlen, 0,
 			   (const struct sockaddr *)&dst6, sizeof(dst6)) < 0) {
 			dprint(LOG_ERR, FNAME, "sendto: %s", strerror(errno));
+			continue;
 			/* try other servers anyway */
 		}
+		dprint(LOG_DEBUG, FNAME, "send %s to %s",
+		       dhcp6msgstr(dh6_4o6hdr->dh4o6_msgtype),
+		       addr2str((struct sockaddr *)&dst6));
 	}
-
-	dprint(LOG_DEBUG, FNAME, "send %s to %s",
-	       dhcp6msgstr(dh6_4o6hdr->dh4o6_msgtype),
-	       addr2str((struct sockaddr *)&dst6));
 }
 
 static struct dhcp6_event *
