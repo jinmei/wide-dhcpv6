@@ -2101,8 +2101,13 @@ dhcp4o6_recv()
 	}
 
 	for (v = TAILQ_FIRST(&dhcp4o6_servers); v; v = TAILQ_NEXT(v, link)) {
-		dst6 = *sa6_allagent;
-		memcpy(&dst6.sin6_addr, &v->val_addr6, sizeof(dst6.sin6_addr));
+		dst6 = *sa6_allagent; /* use this as template */
+		if (IN6_IS_ADDR_UNSPECIFIED(&v->val_addr6)) {
+			dst6.sin6_scope_id = dhcp4o6_if->linkid;
+		} else {
+			memcpy(&dst6.sin6_addr, &v->val_addr6,
+			       sizeof(dst6.sin6_addr));
+		}
 		if (sendto(sock, sendbuf, sizeof(*dh6_4o6hdr) + optlen, 0,
 			   (const struct sockaddr *)&dst6, sizeof(dst6)) < 0) {
 			dprint(LOG_ERR, FNAME, "sendto: %s", strerror(errno));

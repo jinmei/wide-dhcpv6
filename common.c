@@ -364,7 +364,8 @@ dhcp6_get_addr(optlen, cp, type, list)
 
 	if (optlen % sizeof(struct in6_addr) || optlen == 0) {
 		dprint(LOG_INFO, FNAME,
-		    "malformed DHCP option: type %d, len %d", type, optlen);
+		    "malformed DHCP option: type %s, len %d",
+		       dhcp6optstr(type), optlen);
 		return -1;
 	}
 	for (val = cp; val < cp + optlen; val += sizeof(struct in6_addr)) {
@@ -1929,7 +1930,15 @@ dhcp6_get_options(p, ep, optinfo)
 			break;
 		case DH6OPT_DHCP4O6_SERVERS:
 			/* XXX: should handle optlen == 0 case */
-			if (dhcp6_get_addr(optlen, cp, opt,
+			if (optlen == 0) {
+				struct in6_addr zero_addr;
+				memset(&zero_addr, 0, sizeof(zero_addr));
+				if (dhcp6_add_listval(&optinfo->dhcp4o6_list,
+						      DHCP6_LISTVAL_ADDR6,
+						      &zero_addr, NULL) ==
+				    NULL)
+					goto fail;
+			} else if (dhcp6_get_addr(optlen, cp, opt,
 			    &optinfo->dhcp4o6_list) == -1)
 				goto fail;
 			break;
@@ -2633,9 +2642,19 @@ dhcp6_set_options(type, optbp, optep, optinfo)
 	    &p, optep, &len) != 0)
 		goto fail;
 
-	/* XXX: should cover the empty-list case */
-	if (dhcp6_set_addr(DH6OPT_DHCP4O6_SERVERS, &optinfo->dhcp4o6_list,
-	    &p, optep, &len) != 0)
+	/*
+	 * Special case: if the list contains a single unspecified address,
+	 * treat it as not specifying an address.
+	 */
+	if (dhcp6_count_list(&optinfo->dhcp4o6_list) == 1 &&
+	    IN6_IS_ADDR_UNSPECIFIED(
+		    &TAILQ_FIRST(&optinfo->dhcp4o6_list)->val_addr6)) {
+		if (copy_option(DH6OPT_DHCP4O6_SERVERS, 0, NULL, &p, optep,
+				&len) != 0) {
+			goto fail;
+		}
+	} else if (dhcp6_set_addr(DH6OPT_DHCP4O6_SERVERS,
+				  &optinfo->dhcp4o6_list, &p, optep, &len) != 0)
 		goto fail;
 
 	for (op = TAILQ_FIRST(&optinfo->iapd_list); op;
