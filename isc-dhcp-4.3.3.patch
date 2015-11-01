@@ -1,0 +1,188 @@
+diff --git a/client/dhclient.c b/client/dhclient.c
+index be2af6a..a3cd16b 100644
+--- a/client/dhclient.c
++++ b/client/dhclient.c
+@@ -104,6 +104,12 @@ static int check_option_values(struct universe *universe, unsigned int opt,
+ static void dhclient_ddns_cb_free(dhcp_ddns_cb_t *ddns_cb,
+                                    char* file, int line);
+ 
++/* For quick DHCP4o6 support, defined in bpf.c */
++extern const char *sock_filepath;
++extern int fd_unix;
++static int unixsock_read(isc_task_t *task, isc_socket_t *socket, void *cbarg,
++			 int flags);
++
+ #ifndef UNIT_TEST
+ int
+ main(int argc, char **argv) {
+@@ -317,6 +323,11 @@ main(int argc, char **argv) {
+ 		} else if (!strcmp(argv[i], "-I")) {
+ 			/* enable standard DHCID support for DDNS updates */
+ 			std_dhcid = 1;
++		} else if (!strcmp(argv[i], "-f")) {
++			/* DHCP4o6 support */
++			if (++i == argc)
++				usage();
++			sock_filepath = argv[i];
+ 		} else if (!strcmp(argv[i], "-v")) {
+ 			quiet = 0;
+ 		} else if (!strcmp(argv[i], "--version")) {
+@@ -579,6 +590,25 @@ main(int argc, char **argv) {
+ 			    ? DISCOVER_REQUESTED
+ 			    : DISCOVER_RUNNING);
+ 
++	// DHCP4o6
++	if (sock_filepath != NULL) {
++		isc_socket_t *iscsock = NULL; /* XXX: will leak */
++		struct sockaddr_un sun_local;
++		fd_unix = socket(AF_UNIX, SOCK_DGRAM, 0); /* ditto */
++		memset(&sun_local, 0, sizeof(sun_local));
++		sun_local.sun_family = AF_UNIX;
++		sun_local.sun_len = sizeof(sun_local);
++		snprintf(sun_local.sun_path, sizeof(sun_local.sun_path),
++			 "%s-%d", sock_filepath, getpid());
++		unlink(sun_local.sun_path); /* make sure, ignore error */
++		RUNTIME_CHECK(bind(fd_unix, (const struct sockaddr *)&sun_local,
++				   sizeof(sun_local)) == 0);
++		isc_result_t res = isc_socket_fdwatchcreate(
++			dhcp_gbl_ctx.socketmgr, fd_unix, ISC_SOCKFDWATCH_READ,
++			unixsock_read, NULL, dhcp_gbl_ctx.task, &iscsock);
++		RUNTIME_CHECK(res == ISC_R_SUCCESS); /* XXX */
++	}
++
+ 	/* Make up a seed for the random number generator from current
+ 	   time plus the sum of the last four bytes of each
+ 	   interface's hardware address interpreted as an integer.
+@@ -1451,6 +1481,8 @@ void dhcp (packet)
+ 		break;
+ 
+ 	      default:
++		log_info("%s:%d: ignore DHCP message type %d",
++			 MDL, packet->packet_type);
+ 		return;
+ 	}
+ 
+@@ -2228,7 +2260,7 @@ void send_request (cpp)
+ 	      ntohs (destination.sin_port));
+ 
+ 	if (destination.sin_addr.s_addr != INADDR_BROADCAST &&
+-	    fallback_interface) {
++		   fallback_interface) {
+ 		result = send_packet(fallback_interface, NULL, &client->packet,
+ 				     client->packet_length, from, &destination,
+ 				     NULL);
+@@ -4595,3 +4627,46 @@ dhclient_ddns_cb_free(dhcp_ddns_cb_t *ddns_cb, char* file, int line) {
+         ddns_cb_free(ddns_cb, file, line);
+     }
+ }
++
++static int
++unixsock_read(isc_task_t *task, isc_socket_t *socket, void *cbarg, int flags) {
++	int cc;
++	unsigned char buf[4096];
++	struct sockaddr_storage ss;
++	socklen_t from_len = sizeof(ss);
++	struct interface_info *ifp;
++	struct iaddr iaddr_from;
++	struct hardware hfrom;
++
++	UNUSED(task);
++	UNUSED(socket);
++	UNUSED(cbarg);
++	UNUSED(flags);
++
++	cc = recvfrom(fd_unix, buf, sizeof(buf), 0, (struct sockaddr *)&ss,
++		      &from_len);
++	if (cc < 0) {
++		log_error("failed to receive packet from DHCP4o6 client: %s",
++			  strerror(errno));
++		goto end;
++	} else
++		log_info("received %d bytes from DHCP4o6 client", cc);
++
++	if (interfaces == NULL) {
++		log_error("failed to find interface");
++		goto end;
++	}
++	if (interfaces->next != NULL) {
++		log_error("more than one interface was specified for DHCP4o6");
++		goto end;
++	}
++	ifp = interfaces;
++	memset(&iaddr_from, 0, sizeof(iaddr_from));
++	iaddr_from.len = 4;
++	memset(&hfrom, 0, sizeof(hfrom));
++	hfrom.hlen = 6;
++	do_packet(ifp, (struct dhcp_packet *)buf, cc, 4200, iaddr_from, &hfrom);
++
++  end:
++	return (1);		/* always accept more input */
++}
+diff --git a/common/bpf.c b/common/bpf.c
+index 39d4f45..68b8eb7 100644
+--- a/common/bpf.c
++++ b/common/bpf.c
+@@ -62,6 +62,9 @@
+ 
+ #include <errno.h>
+ 
++const char *sock_filepath = NULL;
++int fd_unix = -1;
++
+ /* Reinitializes the specified interface after an address change.   This
+    is not required for packet-filter APIs. */
+ 
+@@ -359,6 +362,37 @@ ssize_t send_packet (interface, packet, raw, len, from, to, hto)
+ 	struct iovec iov [3];
+ 	int result;
+ 
++	/* DHCP4o6 quick support */
++	if (sock_filepath != NULL) {
++		struct sockaddr_un s_un;
++		struct in_addr ina_to = to->sin_addr;
++		struct msghdr mh;
++		int cc;
++
++		iov[0].iov_base = &ina_to;
++		iov[0].iov_len = sizeof(ina_to);
++		iov[1].iov_base = raw;
++		iov[1].iov_len = len;
++
++		memset(&s_un, 0, sizeof(s_un));
++		s_un.sun_family = AF_UNIX;
++		s_un.sun_len = sizeof(s_un);
++		strlcpy(s_un.sun_path, sock_filepath, sizeof(s_un.sun_path));
++
++		memset(&mh, 0, sizeof(mh));
++		mh.msg_name = &s_un;
++		mh.msg_namelen = sizeof(s_un);
++		mh.msg_iov = iov;
++		mh.msg_iovlen = 2;
++		cc = sendmsg(fd_unix, &mh, 0);
++		if (cc < 0) {
++			log_error("%s:%d: Failed to send %d byte long packet "
++				  "to DHCP4o6 client at %s: %s", MDL, (int)len,
++				  s_un.sun_path, strerror(errno));
++		}
++		return cc;
++	}
++
+ 	if (!strcmp (interface -> name, "fallback"))
+ 		return send_fallback (interface, packet, raw,
+ 				      len, from, to, hto);
+diff --git a/common/options.c b/common/options.c
+index 74f1fb5..d213b7a 100644
+--- a/common/options.c
++++ b/common/options.c
+@@ -3905,9 +3905,9 @@ void do_packet (interface, packet, len, from_port, from, hfrom)
+ 	}
+ 
+ 	if (validate_packet(decoded_packet) != 0) {
+-		if (decoded_packet->packet_type)
++		if (decoded_packet->packet_type) {
+ 			dhcp(decoded_packet);
+-		else
++		} else
+ 			bootp(decoded_packet);
+ 	}
+ 
