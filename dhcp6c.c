@@ -2085,7 +2085,7 @@ dhcp4o6_recv()
 	dh6_4o6hdr->dh4o6_msgtype = DH6_4O6_QUERY;
 	dh6_4o6hdr->dh4o6_flags &= ~ntohl(DH4O6_FLAGMASK);
 	if (dst4.s_addr != INADDR_BROADCAST)
-		dh6_4o6hdr->dh4o6_flags |= ~ntohl(DH4O6_FLAG_UNICAST);
+		dh6_4o6hdr->dh4o6_flags |= ntohl(DH4O6_FLAG_UNICAST);
 
 	dhcp6_init_options(&optinfo);
 	optinfo.dhcp4msg_len = cc - sizeof(dst4);
