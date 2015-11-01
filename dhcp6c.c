@@ -411,7 +411,9 @@ client6_init()
 		struct sockaddr_un sun_4o6;
 		memset(&sun_4o6, 0, sizeof(sun_4o6));
 		sun_4o6.sun_family = AF_UNIX;
+#ifdef HAVE_SA_LEN
 		sun_4o6.sun_len = sizeof(sun_4o6);
+#endif
 		if (strlen(dhcp4o6_sockfile) + 1 > sizeof(sun_4o6.sun_path))
 		{
 			dprint(LOG_ERR, FNAME, "socket file too long: %s",
