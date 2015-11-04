@@ -4765,6 +4765,8 @@ rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
 
 CFLAGS="$CFLAGS -D__APPLE_USE_RFC_3542"
 
+CFLAGS="$CFLAGS -D_GNU_SOURCE"
+
 
 # Check whether --with-openssl was given.
 if test "${with_openssl+set}" = set; then :
