@@ -245,7 +245,7 @@ dhcp6_read_certificate(const char *cert_file, void **certificatep)
 	if (!fp) {
 		dprint(LOG_ERR, FNAME, "failed to open certificate file (%s): "
 		       "%s", cert_file, strerror(errno));
-		goto cleanup;
+		return (-1);
 	}
 #ifdef HAVE_OPENSSL
 	else {
@@ -287,11 +287,10 @@ dhcp6_read_certificate(const char *cert_file, void **certificatep)
 	}
 #else
 	dprint(LOG_ERR, FNAME, "missing crypto library to read certificate");
-	goto cleanup;
 #endif
-
 	if (ret == 0)
 		*certificatep = certificate;
+	fclose(fp);
 
 	return (ret);
 }
