@@ -1,0 +1,21 @@
+To play with DCHP4o6, you'll need to run both dhcp6c (DHCPv6 client) and
+dhclient (as a DHCPv4 client).  A patch to ISC DHCP-4.3.3 is included
+in this directory.  It should be easily applicable to other (similar) versions.
+
+Then start the clients like the following example:
+
+# dhcp6c c dhcp6c.conf -4 /tmp/dhcp4o6 en1
+# dhclient -cf dhclient.conf -f /tmp/dhcp4o6 en0
+
+dhcp6c.conf would like this:
+id-assoc na 0 {};
+
+interface en1 {
+	  send ia-na 0;
+	  request dhcp4o6-server-address;
+};
+
+dhclient.conf can be empty.
+
+Of course, you may need to adjust interface names (en0 and en1 in the
+above example) in a straightforward way.
