@@ -1,6 +1,9 @@
 dnl Process this file with autoconf to produce a configure script.
 AC_INIT(dhcp6c.c)
 
+dnl identify host type
+AC_CANONICAL_HOST
+
 dnl Checks for programs.
 AC_PROG_INSTALL
 AC_PROG_MAKE_SET
@@ -247,12 +250,16 @@ daemon(0, 0);
   [AC_MSG_RESULT(no)
    AC_DEFINE([HAVE_BROKEN_DAEMON], 1, [Define to 1 if you have a broken daemon library function])])
 
-dnl MacOS X requires a special definition to enable the IPv6 advanced API
-dnl TODO: this should be deined only for MacOS X
-CFLAGS="$CFLAGS -D__APPLE_USE_RFC_3542"
-
-dnl likewise, for Linux
-CFLAGS="$CFLAGS -D_GNU_SOURCE"
+case "$host" in
+	*-darwin*)
+	dnl OS X requires a special definition to enable the IPv6 advanced API.
+	CFLAGS="$CFLAGS -D__APPLE_USE_RFC_3542"
+	;;
+	*-linux*)
+	dnl ditto for Linux
+	CFLAGS="$CFLAGS -D_GNU_SOURCE"
+	;;
+esac
 
 dnl Openssl (TODO: add auto-detect support)
 AC_ARG_WITH(openssl,
